@@ -137,6 +137,16 @@ def shop_category_view(request, slug):
         'category': category,
         'products': page_obj
     })
+def robots_txt_view(request):
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /mosabbiradmin/\n"
+        "Disallow: /django-admin/\n"
+        "Disallow: /api/\n\n"
+        f"Sitemap: {request.scheme}://{request.get_host()}/sitemap.xml\n"
+    )
+    return HttpResponse(content, content_type="text/plain")
 
 def product_detail_view(request, pk):
     product = get_object_or_404(
@@ -543,8 +553,8 @@ def add_product(request):
     main_image = request.FILES.get('main_image')
     gallery_images = request.FILES.getlist('gallery_images')
 
-    if name and category_id and price:
-        category = get_object_or_404(Category, pk=category_id)
+    if name and price:
+        category = get_object_or_404(Category, pk=category_id) if category_id else None
         d_price = Decimal(str(discount_price)) if discount_price else None
         r_price = Decimal(str(price))
         if d_price and d_price > r_price:
@@ -574,6 +584,8 @@ def merchant_edit_product(request, pk):
         cat_id = request.POST.get('category')
         if cat_id:
             product.category = get_object_or_404(Category, pk=cat_id)
+        else:
+            product.category = None
         product.description = request.POST.get('description', '').strip()
         product.price = Decimal(str(request.POST.get('price', product.price)))
         d_price = request.POST.get('discount_price')

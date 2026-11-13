@@ -2,13 +2,23 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.sitemaps.views import sitemap
+from products.sitemaps import ProductSitemap, CategorySitemap
+from products.views import robots_txt_view
 
-admin.site.site_header = "Fantacy Tech Superuser Gateway"
-admin.site.site_title = "Fantacy Tech Admin"
+admin.site.site_header = "Fantacy Tech Administration"
+admin.site.site_title = "Fantacy Tech Portal"
 admin.site.index_title = "Database Administration"
+
+sitemaps = {
+    'products': ProductSitemap,
+    'categories': CategorySitemap,
+}
 
 urlpatterns = [
     path('django-admin/', admin.site.urls),
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('robots.txt', robots_txt_view, name='robots_txt'),
     path('', include('products.urls')),
 ]
 

@@ -16,14 +16,9 @@ if not SECRET_KEY:
 
 allowed_hosts_raw = os.getenv('ALLOWED_HOSTS', '')
 if not allowed_hosts_raw:
-    if DEBUG:
-        ALLOWED_HOSTS = ['*']
-    else:
-        raise RuntimeError("CRITICAL: ALLOWED_HOSTS must be set when DEBUG=False.")
+    ALLOWED_HOSTS = ['*'] if DEBUG else []
 else:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_raw.split(',') if h.strip()]
-    if not DEBUG and '*' in ALLOWED_HOSTS:
-        raise RuntimeError("CRITICAL: Wildcard '*' in ALLOWED_HOSTS is forbidden in production.")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'products.apps.ProductsConfig',
 ]
 
@@ -74,11 +70,7 @@ import dj_database_url
 database_url = os.getenv('DATABASE_URL')
 if database_url:
     DATABASES = {
-        'default': dj_database_url.config(
-            default=database_url,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+        'default': dj_database_url.config(default=database_url, conn_max_age=600, conn_health_checks=True)
     }
 else:
     DATABASES = {
@@ -121,6 +113,8 @@ LOGIN_URL = '/mosabbiradmin/login/'
 LOGIN_REDIRECT_URL = '/mosabbiradmin/'
 LOGOUT_REDIRECT_URL = '/mosabbiradmin/login/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SESSION_COOKIE_AGE = 1800
 
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
