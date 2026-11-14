@@ -528,3 +528,6 @@ def auto_delete_old_category_files_on_update(sender, instance, **kwargs):
             old_cat.banner.delete(save=False)
         except Exception:
             pass
+
+
+

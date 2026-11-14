@@ -19,3 +19,6 @@ admin.site.register(OrderItem)
 admin.site.register(PromoCode)
 admin.site.register(SiteSetting)
 admin.site.register(StoreVisitSession)
+
+
+

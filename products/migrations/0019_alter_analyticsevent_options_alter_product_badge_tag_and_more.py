@@ -60,3 +60,6 @@ class Migration(migrations.Migration):
             field=models.CharField(default='Welcome to Fantacy Tech! Premium Phone Covers & Key Rings with Fast Home Delivery!', max_length=300),
         ),
     ]
+
+
+

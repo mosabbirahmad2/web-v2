@@ -7,7 +7,8 @@
   <title>{% block title %}{{ site_setting.meta_title|default:site_setting.site_name }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ site_setting.meta_description }}{% endblock %}">
   {% if site_setting.meta_keywords %}<meta name="keywords" content="{{ site_setting.meta_keywords }}">{% endif %}
-  
+  <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,9 +17,26 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <style>
+    /* ============================================================
+       Dynamic theme variables, driven by SiteSetting (merchant-configurable).
+       Every primary accent/button should read from --brand-primary instead
+       of a hardcoded hex, so a merchant's chosen theme_color (and light/dark
+       theme_mode) is respected consistently site-wide.
+       ============================================================ */
+    :root {
+      --brand-primary: {{ site_setting.theme_color|default:"#5C3214" }};
+      --brand-primary-contrast: #ffffff;
+    }
+    {% if site_setting.theme_mode == "dark" %}
+    :root { --surface-bg: #0f172a; --surface-fg: #e2e8f0; }
+    {% else %}
+    :root { --surface-bg: #FAF9F5; --surface-fg: #0f172a; }
+    {% endif %}
+
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .bg-theme { background-color: {{ site_setting.theme_color|default:"#5C3214" }}; }
-    .text-theme { color: {{ site_setting.theme_color|default:"#5C3214" }}; }
+    .bg-theme, .bg-brand-primary { background-color: var(--brand-primary); }
+    .text-theme, .text-brand-primary { color: var(--brand-primary); }
+    .border-brand-primary { border-color: var(--brand-primary); }
     .cart-drawer { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     .cart-hidden { transform: translateX(100%); }
     @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
@@ -29,6 +47,20 @@
     @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-12px) scale(.98); } }
     .toast-item { animation: toastIn .25s ease-out forwards; }
     .toast-item.toast-leaving { animation: toastOut .2s ease-in forwards; }
+    .toast-action-btn { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
+
+    /* Subtle "pop" on the cart badge whenever an item is successfully added */
+    @keyframes cartBadgePop { 0% { transform: scale(1); } 45% { transform: scale(1.4); } 100% { transform: scale(1); } }
+    .cart-badge-pop { animation: cartBadgePop .35s ease; }
+
+    /* "Add to Bag" buttons that already hold this product in the cart */
+    .add-btn-in-cart {
+      background-color: #ecfdf5 !important;
+      color: #047857 !important;
+      border: 1px solid #a7f3d0 !important;
+      cursor: pointer;
+    }
+    .add-btn-in-cart:hover { background-color: #d1fae5 !important; }
 
     /* Subcategory mega-dropdown */
     .nav-cat-item { position: relative; }
@@ -48,29 +80,6 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-[#FAF9F5] text-slate-900 flex flex-col min-h-screen">
-
-  <!-- Professional Toast Notification Stack (replaces window.alert()) -->
-  <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
-
-  <!-- Professional Order-Confirmed Modal (replaces window.alert() on checkout) -->
-  <div id="orderSuccessModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl w-full max-w-sm p-7 shadow-2xl text-center space-y-4">
-      <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
-        <i class="fa-solid fa-circle-check"></i>
-      </div>
-      <div>
-        <h3 class="text-lg font-black text-slate-900">Order Placed Successfully!</h3>
-        <p class="text-xs text-slate-500 mt-1">Thank you! We'll call you shortly to confirm delivery.</p>
-      </div>
-      <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left space-y-1.5">
-        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Order ID</span><span id="osOrderId" class="font-mono font-black text-amber-900"></span></div>
-        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Total Bill</span><span id="osOrderTotal" class="font-black text-slate-900"></span></div>
-      </div>
-      <button onclick="closeOrderSuccessModal()" class="w-full py-3 bg-[#5C3214] text-white rounded-2xl font-bold text-xs hover:opacity-95 transition">
-        Continue Shopping
-      </button>
-    </div>
-  </div>
 
   <!-- Main Header with VISIBLE CLICKABLE SEARCH BUTTON -->
   <!-- NOTE: the old top info bar (Helpline / WhatsApp / "100% Quality
@@ -152,8 +161,28 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- Footer -->
+  <footer class="bg-slate-950 text-slate-400 text-xs py-10 mt-16 border-t border-slate-800 text-center space-y-2">
+    <p class="font-black text-white text-lg tracking-wider uppercase">{{ site_setting.site_name }}</p>
+    <p>{{ site_setting.office_address }} | Helpline: {{ site_setting.contact_phone }}</p>
+    <p class="text-slate-600">&copy; 2026 {{ site_setting.site_name }}. All Rights Reserved.</p>
+  </footer>
+
+  <!-- ============================================================ -->
+  <!-- Global Overlays / Modals / Toasts                             -->
+  <!-- BUG FIX: these must be the LAST elements in <body>, strictly  -->
+  <!-- after <footer>, so later-painted siblings never stack above   -->
+  <!-- them regardless of z-index. Explicit layer order (low→high):  -->
+  <!--   header z-40  →  dropdowns z-50  →  cartBackdrop z-[90]  →   -->
+  <!--   cartDrawer z-[100]  →  checkoutModal z-[110]  →              -->
+  <!--   orderSuccessModal z-[150]  →  toastStack z-[200]             -->
+  <!-- ============================================================ -->
+
+  <!-- Cart Backdrop -->
+  <div id="cartBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-[90] transition-opacity" onclick="toggleCart()"></div>
+
   <!-- Cart Drawer (Shopping Bag) -->
-  <div id="cartDrawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 cart-drawer cart-hidden flex flex-col">
+  <div id="cartDrawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[100] cart-drawer cart-hidden flex flex-col">
     <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-[#FAF9F5]">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-bag-shopping text-amber-900"></i>
@@ -166,15 +195,14 @@
       <div class="flex justify-between items-center text-sm font-bold">
         <span>Items Subtotal</span><span id="cartTotalPrice">৳ 0</span>
       </div>
-      <button onclick="openCheckoutModal()" class="w-full bg-[#5C3214] text-white py-3.5 rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
+      <button onclick="openCheckoutModal()" class="w-full bg-brand-primary text-white py-3.5 rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
         Proceed to Checkout &rarr;
       </button>
     </div>
   </div>
-  <div id="cartBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-40 transition-opacity" onclick="toggleCart()"></div>
 
   <!-- Cash on Delivery Checkout Modal -->
-  <div id="checkoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="checkoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 class="font-bold text-slate-900 text-base">Cash on Delivery Order</h3>
@@ -230,19 +258,35 @@
           </div>
         </div>
 
-        <button type="submit" id="submitOrderBtn" class="w-full py-3.5 bg-[#5C3214] text-white rounded-2xl font-bold text-xs hover:opacity-95 transition shadow-lg">
+        <button type="submit" id="submitOrderBtn" class="w-full py-3.5 bg-brand-primary text-white rounded-2xl font-bold text-xs hover:opacity-95 transition shadow-lg">
           Confirm Order (Cash on Delivery)
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Footer -->
-  <footer class="bg-slate-950 text-slate-400 text-xs py-10 mt-16 border-t border-slate-800 text-center space-y-2">
-    <p class="font-black text-white text-lg tracking-wider uppercase">{{ site_setting.site_name }}</p>
-    <p>{{ site_setting.office_address }} | Helpline: {{ site_setting.contact_phone }}</p>
-    <p class="text-slate-600">&copy; 2026 {{ site_setting.site_name }}. All Rights Reserved.</p>
-  </footer>
+  <!-- Professional Order-Confirmed Modal (replaces window.alert() on checkout) -->
+  <div id="orderSuccessModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-7 shadow-2xl text-center space-y-4">
+      <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-black text-slate-900">Order Placed Successfully!</h3>
+        <p class="text-xs text-slate-500 mt-1">Thank you! We'll call you shortly to confirm delivery.</p>
+      </div>
+      <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left space-y-1.5">
+        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Order ID</span><span id="osOrderId" class="font-mono font-black text-amber-900"></span></div>
+        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Total Bill</span><span id="osOrderTotal" class="font-black text-slate-900"></span></div>
+      </div>
+      <button onclick="closeOrderSuccessModal()" class="w-full py-3 bg-brand-primary text-white rounded-2xl font-bold text-xs hover:opacity-95 transition">
+        Continue Shopping
+      </button>
+    </div>
+  </div>
+
+  <!-- Professional Toast Notification Stack (replaces window.alert()) -->
+  <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
 
   <script>
     function getCookie(name) {
@@ -271,10 +315,62 @@
     function saveCart() {
       localStorage.setItem('fantacy_cart', JSON.stringify(cart));
       renderCartUI();
+      syncAddToBagButtons();
     }
+
+    // Keeps every [data-add-btn] button on the page (home grids, category
+    // grids, product detail, related products) truthful about whether that
+    // product is currently sitting in the cart. Runs after every cart
+    // mutation (via saveCart) and once on page load, so removing an item
+    // from the drawer immediately reverts its button back to "Add to Bag".
+    function syncAddToBagButtons() {
+      const idsInCart = new Set(cart.map(i => String(i.id)));
+      document.querySelectorAll('[data-add-btn]').forEach(btn => {
+        const id = String(btn.dataset.addBtn);
+        if (btn.dataset.originalHtml === undefined) {
+          btn.dataset.originalHtml = btn.innerHTML;
+        }
+        if (idsInCart.has(id)) {
+          btn.innerHTML = '✓ In Your Bag';
+          btn.classList.add('add-btn-in-cart');
+        } else {
+          btn.innerHTML = btn.dataset.originalHtml;
+          btn.classList.remove('add-btn-in-cart');
+        }
+      });
+    }
+
+    // ============================================================
+    // BODY SCROLL LOCK
+    // BUG FIX: the background page used to keep scrolling underneath an open
+    // drawer/modal. Lock scroll whenever ANY overlay is open, and only
+    // restore it once every overlay is confirmed closed (so closing one
+    // modal doesn't re-enable scroll while another is still open, e.g.
+    // checkoutModal closing while orderSuccessModal is opening).
+    // ============================================================
+    function isAnyOverlayOpen() {
+      const drawer = document.getElementById('cartDrawer');
+      const checkout = document.getElementById('checkoutModal');
+      const success = document.getElementById('orderSuccessModal');
+      return (drawer && !drawer.classList.contains('cart-hidden')) ||
+             (checkout && !checkout.classList.contains('hidden')) ||
+             (success && !success.classList.contains('hidden'));
+    }
+    function lockBodyScroll() {
+      document.body.classList.add('overflow-hidden');
+    }
+    function syncBodyScrollLock() {
+      if (isAnyOverlayOpen()) {
+        lockBodyScroll();
+      } else {
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
     function toggleCart() {
       document.getElementById('cartDrawer').classList.toggle('cart-hidden');
       document.getElementById('cartBackdrop').classList.toggle('hidden');
+      syncBodyScrollLock();
     }
     // BUG FIX: toggleCart() flips open/closed each time it's called. addToBag()
     // and the post-order cleanup used to call toggleCart() blindly, so if the
@@ -285,25 +381,50 @@
     function openCart() {
       document.getElementById('cartDrawer').classList.remove('cart-hidden');
       document.getElementById('cartBackdrop').classList.remove('hidden');
+      lockBodyScroll();
     }
     function closeCart() {
       document.getElementById('cartDrawer').classList.add('cart-hidden');
       document.getElementById('cartBackdrop').classList.add('hidden');
+      syncBodyScrollLock();
     }
 
     // SILENT AJAX ADD TO BAG (Updates badge without reloading page!)
-    function addToBag(id, name, effectivePrice, regularPrice, img) {
+    //
+    // BUG FIX (behavior change): "Add to Bag" used to (a) force the cart
+    // drawer open every single time, even for a product the customer wasn't
+    // currently looking at adding, and (b) silently increment the quantity
+    // on every repeat click, which let a mis-click balloon the order total
+    // with no feedback. Neither happens anymore:
+    //   - The drawer is NEVER opened from here. It opens only when the user
+    //     explicitly clicks the header Bag icon or a toast's "View Bag" link.
+    //   - A product already in the cart is left untouched on a repeat click;
+    //     the customer gets a friendly "Already in your bag" toast instead.
+    //   - maxStock (optional) clamps the add, and qty (optional, defaults to
+    //     1) lets a caller like the product-detail quantity stepper add more
+    //     than one unit on the very first add.
+    function addToBag(id, name, effectivePrice, regularPrice, img, maxStock, qty) {
+      id = String(id);
       const p = parseFloat(effectivePrice);
       const regP = regularPrice ? parseFloat(regularPrice) : p;
-      const existing = cart.find(i => String(i.id) === String(id));
-      if (existing) { 
-        existing.qty += 1;
-        existing.price = p; // Keep price synced to discounted value
-      } else { 
-        cart.push({ id: String(id), name, price: p, regularPrice: regP, img: img || '', qty: 1 }); 
+      const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock, 10) : null;
+      const addQty = qty ? Math.max(1, parseInt(qty, 10) || 1) : 1;
+
+      const existing = cart.find(i => String(i.id) === id);
+      if (existing) {
+        showToast('Already in your bag', 'info', { actionLabel: 'View Bag', onAction: openCart });
+        return;
       }
+
+      if (stock !== null && stock <= 0) {
+        showToast('This item is out of stock', 'warning');
+        return;
+      }
+
+      cart.push({ id, name, price: p, regularPrice: regP, img: img || '', qty: addQty, maxStock: stock });
       saveCart();
-      openCart();
+      pulseCartBadge();
+      showToast(`${name} added to your bag`, 'success', { actionLabel: 'View Bag', onAction: openCart });
 
       fetch('/api/log-event/', {
         method: 'POST',
@@ -312,12 +433,33 @@
       });
     }
 
+    // Brief scale "pop" on the header bag badge to draw the eye without a
+    // blocking modal/alert.
+    function pulseCartBadge() {
+      const badge = document.getElementById('cartCountBadge');
+      if (!badge) return;
+      badge.classList.remove('cart-badge-pop');
+      void badge.offsetWidth; // force reflow so the animation can replay
+      badge.classList.add('cart-badge-pop');
+    }
+
+    // Quantity edits inside the drawer remain deliberate (+/- steppers,
+    // clamped to the product's known stock when we have it).
     function updateQty(idx, delta) {
-      if (cart[idx]) {
-        cart[idx].qty += delta;
-        if (cart[idx].qty <= 0) cart.splice(idx, 1);
+      const item = cart[idx];
+      if (!item) return;
+      const newQty = item.qty + delta;
+      if (newQty <= 0) {
+        cart.splice(idx, 1);
         saveCart();
+        return;
       }
+      if (item.maxStock && newQty > item.maxStock) {
+        showToast(`Only ${item.maxStock} in stock`, 'warning');
+        return;
+      }
+      item.qty = newQty;
+      saveCart();
     }
     function removeCartItem(idx) {
       cart.splice(idx, 1);
@@ -353,7 +495,7 @@
                 <div class="flex items-center gap-2 mt-1">
                   <button onclick="updateQty(${idx}, -1)" class="w-5 h-5 rounded bg-slate-100 text-xs font-bold">-</button>
                   <span class="text-xs font-bold">${item.qty}</span>
-                  <button onclick="updateQty(${idx}, 1)" class="w-5 h-5 rounded bg-slate-100 text-xs font-bold">+</button>
+                  <button onclick="updateQty(${idx}, 1)" ${item.maxStock && item.qty >= item.maxStock ? 'disabled' : ''} class="w-5 h-5 rounded text-xs font-bold ${item.maxStock && item.qty >= item.maxStock ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-slate-100'}">+</button>
                 </div>
               </div>
             </div>
@@ -385,6 +527,7 @@
       updateBillSummary();
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.remove('hidden');
+      lockBodyScroll();
 
       // BUG FIX: analytics funnel counts 'checkout_start' events but nothing
       // ever sent one, so "Checkout Initiated" always showed 0 on the dashboard.
@@ -397,6 +540,7 @@
     function closeCheckoutModal() {
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.add('hidden');
+      syncBodyScrollLock();
     }
     async function applyPromoCode() {
       const input = document.getElementById('promoInput');
@@ -532,7 +676,10 @@
       }
     });
 
-    document.addEventListener('DOMContentLoaded', renderCartUI);
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCartUI();
+      syncAddToBagButtons();
+    });
 
     // ============================================================
     // PROFESSIONAL NOTIFICATIONS (replaces window.alert()/confirm())
@@ -543,21 +690,41 @@
       warning: '<i class="fa-solid fa-triangle-exclamation text-amber-500"></i>',
       info:    '<i class="fa-solid fa-circle-info text-blue-500"></i>',
     };
-    function showToast(message, type = 'info', duration = 4200) {
+    // opts: { duration, actionLabel, onAction }. A bare number is still
+    // accepted as a duration override for backward compatibility.
+    function showToast(message, type = 'info', opts = {}) {
+      if (typeof opts === 'number') opts = { duration: opts };
+      const { duration = 4200, actionLabel = null, onAction = null } = opts;
+
       const stack = document.getElementById('toastStack');
       if (!stack) return;
       const el = document.createElement('div');
       el.className = 'toast-item pointer-events-auto w-full sm:w-auto sm:min-w-[300px] max-w-sm flex items-start gap-3 bg-white border border-slate-200 shadow-xl rounded-2xl px-4 py-3.5';
       el.innerHTML = `
         <div class="text-base mt-0.5 shrink-0">${TOAST_ICONS[type] || TOAST_ICONS.info}</div>
-        <div class="flex-1 text-xs font-semibold text-slate-800 leading-relaxed">${message}</div>
-        <button class="text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
+        <div class="flex-1 text-xs font-semibold text-slate-800 leading-relaxed">
+          <div>${message}</div>
+          ${actionLabel ? `<button type="button" class="toast-action-btn mt-1.5 text-[11px] font-black text-amber-900 underline underline-offset-2 hover:text-amber-700">${actionLabel}</button>` : ''}
+        </div>
+        <button class="toast-dismiss-btn text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
       `;
       const dismiss = () => {
         el.classList.add('toast-leaving');
         setTimeout(() => el.remove(), 200);
       };
-      el.querySelector('button').onclick = dismiss;
+      el.querySelector('.toast-dismiss-btn').onclick = dismiss;
+      if (actionLabel) {
+        const actionBtn = el.querySelector('.toast-action-btn');
+        // BUG FIX: this is the ONLY place besides the header bag icon that's
+        // allowed to open the cart drawer -- a deliberate click on "View Bag"
+        // inside the toast, never an automatic side effect of adding an item.
+        if (actionBtn) {
+          actionBtn.onclick = () => {
+            if (typeof onAction === 'function') onAction();
+            dismiss();
+          };
+        }
+      }
       stack.appendChild(el);
       setTimeout(dismiss, duration);
     }
@@ -566,11 +733,16 @@
       document.getElementById('osOrderId').innerText = orderId;
       document.getElementById('osOrderTotal').innerText = `৳ ${total}`;
       document.getElementById('orderSuccessModal').classList.remove('hidden');
+      lockBodyScroll();
     }
     function closeOrderSuccessModal() {
       document.getElementById('orderSuccessModal').classList.add('hidden');
+      syncBodyScrollLock();
     }
   </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
+
+
+

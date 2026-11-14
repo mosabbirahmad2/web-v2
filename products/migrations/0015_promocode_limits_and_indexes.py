@@ -37,3 +37,6 @@ class Migration(migrations.Migration):
             field=models.CharField(choices=[('Placed', 'Placed'), ('On Hold', 'On Hold'), ('Confirmed', 'Confirmed'), ('Shipped', 'Shipped'), ('Delivered', 'Delivered'), ('Completed', 'Completed'), ('Cancelled', 'Cancelled'), ('Returned', 'Returned')], db_index=True, default='Placed', max_length=25),
         ),
     ]
+
+
+

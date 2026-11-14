@@ -1063,3 +1063,6 @@ def delete_promo(request, pk):
     p.delete()
     messages.success(request, 'Promo code deleted successfully!')
     return redirect('merchant_promos')
+
+
+

@@ -117,7 +117,7 @@
           </div>
           <div class="flex items-center gap-2">
             {% if product.stock > 0 %}
-            <button onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}')" class="flex-1 bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+            <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}')" class="flex-1 bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-basket-shopping"></i> Add to Bag
             </button>
             {% else %}
@@ -188,7 +188,7 @@
             {% endif %}
           </div>
           {% if product.stock > 0 %}
-          <button onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}')" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+          <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}')" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
             <i class="fa-solid fa-basket-shopping"></i> Add to Bag
           </button>
           {% else %}
@@ -242,3 +242,6 @@
   }, 1000);
 </script>
 {% endblock %}
+
+
+
