@@ -69,7 +69,15 @@
             <td class="p-4 max-w-xs">
               <div class="line-clamp-1 font-semibold text-slate-800">{{ order.district }} ({{ order.thana|default:"-" }})</div>
               <div class="text-[10px] text-slate-400 line-clamp-1">{{ order.shipping_address }}</div>
-              <div class="text-[10px] text-purple-600 mt-0.5 font-bold">{{ order.items.count }} Item(s)</div>
+              <!-- BUG FIX: this used to be a plain, non-clickable item COUNT
+                   with no way to see which products were ordered. Admins had
+                   no visibility into what a customer actually bought,
+                   especially on multi-product orders. "View Items" now opens
+                   a full itemized breakdown (works for any number of items,
+                   scrollable). -->
+              <button type="button" onclick="openOrderItemsModal('{{ order.pk }}')" class="text-[10px] text-purple-600 mt-1 font-bold underline decoration-dotted hover:text-purple-800 flex items-center gap-1">
+                <i class="fa-solid fa-boxes-stacked"></i> View {{ order.items.count }} Item{{ order.items.count|pluralize }}
+              </button>
             </td>
             <td class="p-4 font-black text-slate-900">
               ৳ {{ order.total_amount }}
@@ -127,9 +135,99 @@
   </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- ORDER ITEMS DETAIL MODAL (shows every product in the order,  -->
+<!-- however many were purchased - scrolls if the list is long)   -->
+<!-- ============================================================ -->
+<div id="orderItemsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[88vh] flex flex-col overflow-hidden">
+    <div class="flex justify-between items-center border-b p-5 shrink-0">
+      <div>
+        <h3 class="font-bold text-slate-900 text-base">Order Items</h3>
+        <span id="oiOrderIdLabel" class="text-xs font-mono font-black text-purple-700"></span>
+      </div>
+      <button onclick="document.getElementById('orderItemsModal').classList.add('hidden')" class="text-slate-400 hover:text-black text-2xl font-light">&times;</button>
+    </div>
+    <div id="oiCustomerInfo" class="px-5 pt-4 text-xs text-slate-500 shrink-0"></div>
+    <div id="oiItemsContainer" class="flex-1 overflow-y-auto p-5 space-y-2.5"></div>
+    <div id="oiTotalsContainer" class="border-t p-5 space-y-1.5 text-xs font-semibold text-slate-700 bg-slate-50 shrink-0"></div>
+  </div>
+</div>
+
+<!-- Per-order item data (hidden templates - no extra network request needed) -->
+{% for order in orders %}
+<template id="order-items-data-{{ order.pk }}">
+  <div data-order-id="{{ order.order_id }}" data-customer="{{ order.customer_name }} &middot; {{ order.customer_phone }}"
+       data-address="{{ order.district }}{% if order.thana %}, {{ order.thana }}{% endif %} &mdash; {{ order.shipping_address }}"
+       data-discount="{{ order.discount_amount }}" data-delivery="{{ order.delivery_fee }}" data-total="{{ order.total_amount }}">
+    {% for item in order.items.all %}
+    <div class="order-item-row flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-3"
+         data-name="{{ item.product_name|default:item.product.name|default:"Deleted Product"|escapejs }}"
+         data-code="{{ item.product_code|default:"-" }}"
+         data-qty="{{ item.quantity }}"
+         data-price="{{ item.price }}"
+         data-img="{% if item.product.image %}{{ item.product.image.url }}{% endif %}">
+    </div>
+    {% empty %}
+    <div class="order-item-row-empty"></div>
+    {% endfor %}
+  </div>
+</template>
+{% endfor %}
+
 <script>
   function toggleAllOrderCheckboxes(master) {
     document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = master.checked);
   }
+
+  function openOrderItemsModal(orderPk) {
+    const tpl = document.getElementById('order-items-data-' + orderPk);
+    if (!tpl) return;
+    const dataDiv = tpl.content.querySelector('div[data-order-id]');
+    const rows = tpl.content.querySelectorAll('.order-item-row');
+
+    document.getElementById('oiOrderIdLabel').innerText = dataDiv.dataset.orderId;
+    document.getElementById('oiCustomerInfo').innerHTML = `
+      <div class="font-bold text-slate-800 mb-1">${dataDiv.dataset.customer}</div>
+      <div class="text-slate-400">${dataDiv.dataset.address}</div>
+    `;
+
+    const container = document.getElementById('oiItemsContainer');
+    if (rows.length === 0) {
+      container.innerHTML = `<div class="text-center text-xs text-slate-400 py-6">No item details recorded for this order.</div>`;
+    } else {
+      let html = '';
+      rows.forEach((row, idx) => {
+        const lineTotal = (parseFloat(row.dataset.price) * parseInt(row.dataset.qty)).toFixed(2);
+        html += `
+          <div class="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-3">
+            <div class="w-11 h-11 rounded-xl bg-white border overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+              ${row.dataset.img ? `<img src="${row.dataset.img}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box"></i>`}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-slate-900 line-clamp-1">${idx + 1}. ${row.dataset.name}</div>
+              <div class="text-[10px] font-mono text-purple-600 font-bold">Code: ${row.dataset.code}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-xs font-black text-slate-900">৳ ${lineTotal}</div>
+              <div class="text-[10px] text-slate-400 font-semibold">${row.dataset.qty} &times; ৳${row.dataset.price}</div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    document.getElementById('oiTotalsContainer').innerHTML = `
+      ${parseFloat(dataDiv.dataset.discount) > 0 ? `<div class="flex justify-between text-emerald-600"><span>Promo Discount</span><span>- ৳ ${dataDiv.dataset.discount}</span></div>` : ''}
+      <div class="flex justify-between"><span>Delivery Fee</span><span>৳ ${dataDiv.dataset.delivery}</span></div>
+      <div class="flex justify-between text-sm font-black text-slate-900 pt-1.5 border-t mt-1.5"><span>Grand Total</span><span>৳ ${dataDiv.dataset.total}</span></div>
+    `;
+
+    document.getElementById('orderItemsModal').classList.remove('hidden');
+  }
 </script>
 {% endblock %}
+
+
+

@@ -124,17 +124,36 @@ def home_view(request):
 
 def shop_category_view(request, slug):
     category = get_object_or_404(Category, slug=slug)
-    sub_ids = category.subcategories.values_list('id', flat=True)
-    products = Product.objects.filter(
-        Q(category=category) | Q(category__id__in=sub_ids),
-        is_active=True
-    ).distinct().select_related('category').order_by('-created_at')
+    # BUG FIX: subcategories existed in the data model (Category.parent) and
+    # were already being queried to pull in products, but the storefront never
+    # rendered them anywhere, so customers had no way to browse/filter by
+    # subcategory. We now pass the subcategory list + an optional ?sub=<id>
+    # filter to the template so filter chips can be rendered and used.
+    subcategories = category.subcategories.filter(is_active=True)
+
+    selected_sub = None
+    sub_filter = request.GET.get('sub', '').strip()
+    if sub_filter:
+        selected_sub = subcategories.filter(pk=sub_filter).first()
+
+    if selected_sub:
+        products = Product.objects.filter(category=selected_sub, is_active=True)
+    else:
+        sub_ids = subcategories.values_list('id', flat=True)
+        products = Product.objects.filter(
+            Q(category=category) | Q(category__id__in=sub_ids),
+            is_active=True
+        ).distinct()
+
+    products = products.select_related('category').order_by('-created_at')
 
     paginator = Paginator(products, 24)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
     return render(request, 'shop/category_products.html', {
         'category': category,
+        'subcategories': subcategories,
+        'selected_sub': selected_sub,
         'products': page_obj
     })
 def robots_txt_view(request):
@@ -538,7 +557,13 @@ def merchant_products(request, edit_pk=None):
 
     paginator = Paginator(products_qs, 15)
     page_obj = paginator.get_page(request.GET.get('page', 1))
-    categories = Category.objects.all()
+    # BUG FIX: previously an unordered flat Category.objects.all() was passed
+    # to the "Category" <select> in both the Add Product and Edit Product
+    # modals, so sub-categories were mixed in with top-level categories with
+    # no visual distinction - merchants often couldn't tell sub-categories
+    # were even there ("sub category doesn't show"). select_related('parent')
+    # + ordering lets the template render "— SubName (ParentName)" clearly.
+    categories = Category.objects.select_related('parent').order_by('name')
 
     return render(request, 'merchant/products.html', {
         'products': page_obj,
@@ -1022,3 +1047,6 @@ def delete_promo(request, pk):
     p.delete()
     messages.success(request, 'Promo code deleted successfully!')
     return redirect('merchant_promos')
+
+
+

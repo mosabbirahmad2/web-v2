@@ -7,7 +7,7 @@
       <h1 class="text-2xl font-black text-slate-900">Homepage Showcase Sections</h1>
       <p class="text-xs text-slate-400 mt-1">Design landing page campaigns: Flash Sales, Featured Drops, Curated Podiums</p>
     </div>
-    <button onclick="document.getElementById('secModal').classList.remove('hidden')" class="btn-purple px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
+    <button onclick="openCreateSectionModal()" class="btn-purple px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm">
       <i class="fa-solid fa-plus"></i> Create Section
     </button>
   </div>
@@ -64,6 +64,17 @@
               <i class="fa-solid fa-toggle-on"></i>
             </button>
           </form>
+          <!-- BUG FIX: there used to be no Edit button and no edit form at all
+               for Showcase Sections - only Create was wired up in this page,
+               even though a merchant_edit_section view already existed on
+               the backend with nothing in the UI ever calling it. This button
+               opens the same modal pre-filled with the section's current
+               data and posts to the real edit endpoint. -->
+          <button type="button"
+            onclick="openEditSectionModal('{% url 'merchant_edit_section' sec.pk %}', '{{ sec.title|escapejs }}', '{{ sec.background_style }}', {% if sec.has_countdown %}true{% else %}false{% endif %}, '{% if sec.end_time %}{{ sec.end_time|date:"Y-m-d\TH:i" }}{% endif %}', '{% for p in sec.products.all %}{{ p.id }}{% if not forloop.last %},{% endif %}{% endfor %}')"
+            class="text-slate-400 hover:text-purple-600" title="Edit section">
+            <i class="fa-solid fa-pen"></i>
+          </button>
           <button type="button" onclick="triggerActionModal('{% url 'merchant_delete_section' sec.pk %}', 'Delete section {{ sec.title|escapejs }}?')" class="text-slate-400 hover:text-rose-600">
             <i class="fa-regular fa-trash-can"></i>
           </button>
@@ -100,41 +111,44 @@
   {% endif %}
 </div>
 
-<!-- Modal: Create Section with DateTime Countdown -->
+<!-- Modal: Create / Edit Section with DateTime Countdown -->
+<!-- This single modal is shared for both Create and Edit. JS sets the
+     form's "action" attribute, title text and submit label depending on
+     which one was opened, and pre-fills every field for Edit mode. -->
 <div id="secModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
   <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
     <div class="flex justify-between items-center border-b pb-3">
-      <h3 class="font-bold text-slate-900 text-base">Create Showcase Section</h3>
-      <button onclick="document.getElementById('secModal').classList.add('hidden')" class="text-slate-400 text-xl">&times;</button>
+      <h3 id="secModalTitle" class="font-bold text-slate-900 text-base">Create Showcase Section</h3>
+      <button type="button" onclick="document.getElementById('secModal').classList.add('hidden')" class="text-slate-400 text-xl">&times;</button>
     </div>
-    <form method="POST" class="space-y-4">
+    <form id="secForm" method="POST" action="{% url 'merchant_sections' %}" class="space-y-4">
       {% csrf_token %}
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1">Section Title *</label>
-        <input type="text" name="title" required placeholder="e.g. Flash Sale" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
+        <input type="text" name="title" id="sec_title" required placeholder="e.g. Flash Sale" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
       </div>
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1">Visual Theme</label>
-        <select name="background_style" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
+        <select name="background_style" id="sec_bg_style" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
           <option value="light">White / Light Minimal</option>
           <option value="brown">Warm Coffee Brown</option>
           <option value="dark">Charcoal Black</option>
         </select>
       </div>
       <div class="flex items-center gap-2">
-        <input type="checkbox" name="has_countdown" id="cd_check" class="rounded text-purple-600">
-        <label for="cd_check" class="text-xs font-bold text-slate-700">Enable Countdown Expiration</label>
+        <input type="checkbox" name="has_countdown" id="sec_cd_check" class="rounded text-purple-600" onchange="document.getElementById('sec_end_time_wrap').classList.toggle('hidden', !this.checked)">
+        <label for="sec_cd_check" class="text-xs font-bold text-slate-700">Enable Countdown Expiration</label>
       </div>
-      <div>
+      <div id="sec_end_time_wrap" class="hidden">
         <label class="block text-xs font-bold text-slate-700 mb-1">Countdown End Datetime</label>
-        <input type="datetime-local" name="end_time" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
+        <input type="datetime-local" name="end_time" id="sec_end_time" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
       </div>
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1">Featured Products</label>
-        <div class="border rounded-xl bg-slate-50 max-h-72 overflow-y-auto divide-y divide-slate-100">
+        <div id="sec_products_list" class="border rounded-xl bg-slate-50 max-h-72 overflow-y-auto divide-y divide-slate-100">
           {% for p in all_products %}
           <label class="flex items-center gap-3 p-2.5 hover:bg-slate-100/70 cursor-pointer transition rounded-xl">
-            <input type="checkbox" name="products" value="{{ p.id }}" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
+            <input type="checkbox" name="products" value="{{ p.id }}" class="sec-product-checkbox w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
             {% if p.image %}
             <img src="{{ p.image.url }}" class="w-10 h-10 object-cover rounded-lg border">
             {% endif %}
@@ -151,9 +165,51 @@
       </div>
       <div class="flex gap-2 pt-2">
         <button type="button" onclick="document.getElementById('secModal').classList.add('hidden')" class="flex-1 py-2.5 border rounded-xl font-bold text-xs">Cancel</button>
-        <button type="submit" class="flex-1 py-2.5 btn-purple rounded-xl font-bold text-xs shadow-md">Save Section</button>
+        <button type="submit" id="secSubmitBtn" class="flex-1 py-2.5 btn-purple rounded-xl font-bold text-xs shadow-md">Save Section</button>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+  function resetSectionForm() {
+    document.getElementById('sec_title').value = '';
+    document.getElementById('sec_bg_style').value = 'light';
+    document.getElementById('sec_cd_check').checked = false;
+    document.getElementById('sec_end_time').value = '';
+    document.getElementById('sec_end_time_wrap').classList.add('hidden');
+    document.querySelectorAll('.sec-product-checkbox').forEach(cb => cb.checked = false);
+  }
+
+  function openCreateSectionModal() {
+    resetSectionForm();
+    document.getElementById('secModalTitle').innerText = 'Create Showcase Section';
+    document.getElementById('secSubmitBtn').innerText = 'Save Section';
+    document.getElementById('secForm').action = "{% url 'merchant_sections' %}";
+    document.getElementById('secModal').classList.remove('hidden');
+  }
+
+  function openEditSectionModal(editUrl, title, bgStyle, hasCountdown, endTimeLocal, productIdsCsv) {
+    resetSectionForm();
+    document.getElementById('secModalTitle').innerText = 'Edit Showcase Section';
+    document.getElementById('secSubmitBtn').innerText = 'Update Section';
+    document.getElementById('secForm').action = editUrl;
+
+    document.getElementById('sec_title').value = title;
+    document.getElementById('sec_bg_style').value = bgStyle;
+    document.getElementById('sec_cd_check').checked = hasCountdown;
+    document.getElementById('sec_end_time').value = endTimeLocal || '';
+    document.getElementById('sec_end_time_wrap').classList.toggle('hidden', !hasCountdown);
+
+    const ids = (productIdsCsv || '').split(',').map(s => s.trim()).filter(Boolean);
+    document.querySelectorAll('.sec-product-checkbox').forEach(cb => {
+      cb.checked = ids.includes(cb.value);
+    });
+
+    document.getElementById('secModal').classList.remove('hidden');
+  }
+</script>
 {% endblock %}
+
+
+

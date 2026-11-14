@@ -14,6 +14,24 @@
     {% endif %}
   </div>
 
+  <!-- Sub-category filter chips -->
+  <!-- BUG FIX: sub-categories existed in the database and were even already
+       being combined into this page's product query, but customers had no
+       visible way to browse/filter by them ("sub category doesn't show").
+       These chips fix that and link to ?sub=<id> which the view now honors. -->
+  {% if subcategories %}
+  <div class="flex items-center gap-2 flex-wrap mb-8">
+    <a href="{% url 'shop_category' category.slug %}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if not selected_sub %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+      All {{ category.name }}
+    </a>
+    {% for sub in subcategories %}
+    <a href="?sub={{ sub.id }}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if selected_sub.id == sub.id %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+      {{ sub.name }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
     {% for product in products %}
     <div class="bg-white rounded-3xl p-4 border border-slate-100 hover:shadow-xl transition flex flex-col justify-between">
@@ -36,3 +54,6 @@
   </div>
 </div>
 {% endblock %}
+
+
+

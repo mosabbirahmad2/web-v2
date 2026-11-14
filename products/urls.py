@@ -60,3 +60,6 @@ urlpatterns = [
     path('mosabbiradmin/promos/<int:pk>/toggle/', views.toggle_promo, name='toggle_promo'),
     path('mosabbiradmin/promos/<int:pk>/delete/', views.delete_promo, name='delete_promo'),
 ]
+
+
+
