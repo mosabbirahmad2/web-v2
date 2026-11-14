@@ -806,6 +806,21 @@ def merchant_sections(request):
     active_sections = sections.filter(is_active=True).count()
     total_featured_products = sum(s.products.count() for s in sections)
 
+    # Visual swatch classes shown in the "Visual Theme" picker in
+    # merchant/sections.html, one per ShowcaseSection.STYLE_CHOICES key.
+    # Keep in sync with the background rendering in templates/index.html.
+    theme_choices = [
+        ('light', 'White', 'bg-white border border-slate-200'),
+        ('cream', 'Cream', 'bg-[#FBF4E8]'),
+        ('brown', 'Coffee Brown', 'bg-[#5C3214]'),
+        ('dark', 'Charcoal', 'bg-slate-900'),
+        ('navy', 'Deep Navy', 'bg-[#0B1F3A]'),
+        ('emerald', 'Emerald', 'bg-emerald-900'),
+        ('rose', 'Rose Blush', 'bg-[#FDEEF1] border border-rose-200'),
+        ('slate', 'Cool Slate', 'bg-slate-100 border border-slate-300'),
+        ('gradient', 'Sunset Gradient', 'bg-gradient-to-r from-amber-700 via-orange-600 to-rose-600'),
+    ]
+
     return render(request, 'merchant/sections.html', {
         'sections': sections,
         'all_products': all_products,
@@ -813,6 +828,7 @@ def merchant_sections(request):
         'active_sections': active_sections,
         'total_featured_products': total_featured_products,
         'active_menu': 'sections',
+        'theme_choices': theme_choices,
     })
 
 @login_required(login_url='admin_login')
@@ -1047,6 +1063,3 @@ def delete_promo(request, pk):
     p.delete()
     messages.success(request, 'Promo code deleted successfully!')
     return redirect('merchant_promos')
-
-
-

@@ -170,6 +170,3 @@ class Migration(migrations.Migration):
             name='ProductView',
         ),
     ]
-
-
-

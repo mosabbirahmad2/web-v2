@@ -51,6 +51,3 @@ class AnalyticsMiddleware:
                     pass
 
         return self.get_response(request)
-
-
-

@@ -52,6 +52,3 @@ class Migration(migrations.Migration):
             field=models.CharField(blank=True, default='Fantacy Tech - Premium Mobile Covers & Accessories', max_length=200),
         ),
     ]
-
-
-

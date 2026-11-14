@@ -41,6 +41,3 @@ if __name__ == "__main__":
         action = sys.argv[1]
         print(f"Executing: {action}...")
         run_command(f"{action} {' '.join(sys.argv[2:])}")
-
-
-

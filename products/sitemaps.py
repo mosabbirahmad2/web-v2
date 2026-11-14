@@ -26,6 +26,3 @@ class CategorySitemap(Sitemap):
 
     def location(self, obj):
         return obj.get_absolute_url()
-
-
-

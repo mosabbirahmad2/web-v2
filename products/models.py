@@ -272,10 +272,19 @@ class ProductReview(models.Model):
 
 
 class ShowcaseSection(models.Model):
+    # Expanded from 3 to 9 professional storefront themes (admin requested
+    # more visual variety in the "Homepage Showcase Sections" theme picker).
+    # index.html's section renderer has a matching Tailwind class for each key.
     STYLE_CHOICES = (
         ('light', 'White / Minimal'),
+        ('cream', 'Soft Cream'),
         ('brown', 'Warm Coffee Brown'),
         ('dark', 'Charcoal Black'),
+        ('navy', 'Deep Navy'),
+        ('emerald', 'Emerald Green'),
+        ('rose', 'Rose Blush'),
+        ('slate', 'Cool Slate'),
+        ('gradient', 'Sunset Gradient'),
     )
     title = models.CharField(max_length=100)
     slug = models.SlugField(max_length=120, unique=True, blank=True)
@@ -519,6 +528,3 @@ def auto_delete_old_category_files_on_update(sender, instance, **kwargs):
             old_cat.banner.delete(save=False)
         except Exception:
             pass
-
-
-

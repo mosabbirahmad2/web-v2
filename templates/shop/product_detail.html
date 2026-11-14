@@ -62,10 +62,19 @@
 
         <!-- Rating & Stock Line -->
         <div class="flex items-center gap-3 text-sm">
+          {% if product.avg_rating %}
           <div class="flex items-center text-amber-500 font-bold text-xs">
             <i class="fa-solid fa-star mr-1"></i> {{ product.avg_rating }}
             <span class="text-slate-400 font-normal ml-1">({{ product.reviews_count }} reviews)</span>
           </div>
+          {% else %}
+          <!-- BUG FIX: avg_rating is None with zero reviews, and the template
+               used to print that Python None literally as the text "None"
+               next to a star icon -- confusing and unprofessional. -->
+          <div class="flex items-center text-slate-400 font-semibold text-xs">
+            <i class="fa-regular fa-star mr-1"></i> No ratings yet
+          </div>
+          {% endif %}
           <span class="text-slate-300">|</span>
           
           {% if product.stock > 5 %}
@@ -123,7 +132,11 @@
   <div class="mt-12 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-8">
     <div class="flex justify-between items-center border-b pb-4">
       <h3 class="text-lg font-black text-slate-900">Verified Customer Reviews ({{ reviews.count }})</h3>
+      {% if product.avg_rating %}
       <div class="text-xs text-amber-500 font-bold">Average: ★ {{ product.avg_rating }} / 5.0</div>
+      {% else %}
+      <div class="text-xs text-slate-400 font-semibold">No ratings yet</div>
+      {% endif %}
     </div>
 
     <!-- Review Form with CSRF -->
@@ -232,5 +245,3 @@
   }
 </script>
 {% endblock %}
-
-

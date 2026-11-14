@@ -76,6 +76,3 @@ class Migration(migrations.Migration):
             unique_together={('ip_address', 'username')},
         ),
     ]
-
-
-

@@ -128,6 +128,3 @@ class Migration(migrations.Migration):
             },
         ),
     ]
-
-
-

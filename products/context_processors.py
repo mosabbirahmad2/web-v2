@@ -16,6 +16,3 @@ def site_settings_processor(request):
         'site_setting': site_setting,
         'global_categories': global_categories
     }
-
-
-
