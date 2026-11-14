@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}{{ product.name }} ({{ product.product_code|default:'' }}) - {{ site_setting.site_name }}{% endblock %}
+{% block title %}{{ product.meta_title|default:product.name }} - {{ site_setting.site_name }}{% endblock %}
+{% block meta_description %}{{ product.meta_description|default:product.description|truncatechars:160 }}{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -87,7 +88,7 @@
           <span class="text-3xl font-black text-slate-900">৳ {{ product.effective_price }}</span>
           {% if product.discount_price and product.discount_price < product.price %}
           <span class="text-base text-slate-400 line-through">৳ {{ product.price }}</span>
-          <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md">Save ৳{{ product.price|add:"-product.discount_price" }}</span>
+          <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md">Save ৳{{ product.save_amount }}</span>
           {% endif %}
         </div>
 

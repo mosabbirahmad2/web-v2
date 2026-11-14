@@ -1,4 +1,9 @@
-{% extends 'index.html' %}
+{% extends 'base.html' %}
+{% block title %}{{ category.meta_title|default:category.name }} - {{ site_setting.site_name }}{% endblock %}
+{% block extra_head %}
+<meta name="description" content="{{ category.meta_description|default:category.short_description|default:site_setting.meta_description }}">
+{% if category.meta_keywords %}<meta name="keywords" content="{{ category.meta_keywords }}">{% endif %}
+{% endblock %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
   <div class="mb-8">
@@ -20,7 +25,7 @@
       </div>
       <div class="mt-4">
         <div class="font-black text-slate-900 mb-3">৳ {{ product.effective_price }}</div>
-        <button onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{% if product.image %}{{ product.image.url }}{% endif %}')" class="w-full bg-slate-900 hover:bg-black text-white py-2 rounded-xl text-xs font-bold">
+        <button onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}')" class="w-full bg-slate-900 hover:bg-black text-white py-2 rounded-xl text-xs font-bold">
           Add to Bag
         </button>
       </div>

@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}{{ site_setting.site_name }} - Premium Accessories{% endblock %}</title>
+  <title>{% block title %}{{ site_setting.meta_title|default:site_setting.site_name }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}{{ site_setting.meta_description }}{% endblock %}">
+  {% if site_setting.meta_keywords %}<meta name="keywords" content="{{ site_setting.meta_keywords }}">{% endif %}
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -226,6 +228,20 @@
       document.getElementById('cartDrawer').classList.toggle('cart-hidden');
       document.getElementById('cartBackdrop').classList.toggle('hidden');
     }
+    // BUG FIX: toggleCart() flips open/closed each time it's called. addToBag()
+    // and the post-order cleanup used to call toggleCart() blindly, so if the
+    // drawer was already open (e.g. user adds a second product while the cart
+    // is open), the next "Add to Bag" click would CLOSE it instead of keeping
+    // it open — making the drawer appear to flicker open/closed repeatedly.
+    // openCart()/closeCart() set an explicit state instead of toggling.
+    function openCart() {
+      document.getElementById('cartDrawer').classList.remove('cart-hidden');
+      document.getElementById('cartBackdrop').classList.remove('hidden');
+    }
+    function closeCart() {
+      document.getElementById('cartDrawer').classList.add('cart-hidden');
+      document.getElementById('cartBackdrop').classList.add('hidden');
+    }
 
     // SILENT AJAX ADD TO BAG (Updates badge without reloading page!)
     function addToBag(id, name, effectivePrice, regularPrice, img) {
@@ -239,7 +255,7 @@
         cart.push({ id: String(id), name, price: p, regularPrice: regP, img: img || '', qty: 1 }); 
       }
       saveCart();
-      toggleCart();
+      openCart();
 
       fetch('/api/log-event/', {
         method: 'POST',
@@ -321,6 +337,14 @@
       updateBillSummary();
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.remove('hidden');
+
+      // BUG FIX: analytics funnel counts 'checkout_start' events but nothing
+      // ever sent one, so "Checkout Initiated" always showed 0 on the dashboard.
+      fetch('/api/log-event/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+        body: JSON.stringify({ event_type: 'checkout_start' })
+      });
     }
     function closeCheckoutModal() {
       const modal = document.getElementById('checkoutModal');
@@ -382,7 +406,7 @@
           cart = [];
           saveCart();
           closeCheckoutModal();
-          toggleCart();
+          closeCart();
         } else {
           // If deleted product in cart caused failure, auto-clear orphaned items
           if (result.invalid_items) {

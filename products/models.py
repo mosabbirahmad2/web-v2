@@ -203,14 +203,28 @@ class Product(models.Model):
 
     @property
     def effective_price(self):
-        if self.discount_price and self.discount_price > 0:
-            return min(self.price, self.discount_price)
+        # BUG FIX: used to check "self.discount_price and self.discount_price > 0",
+        # which treats a deliberately-set Decimal('0.00') discount as falsy and
+        # ignores it. Use "is not None" so a 0-amount discount is honored too.
+        if self.discount_price is not None and self.discount_price < self.price:
+            return self.discount_price
         return self.price
 
     @property
     def discount_percent(self):
-        if self.discount_price and self.discount_price < self.price:
+        if self.discount_price is not None and self.discount_price < self.price:
             return int(((self.price - self.discount_price) / self.price) * 100)
+        return 0
+
+    @property
+    def save_amount(self):
+        # BUG FIX: product_detail.html used to try
+        # {{ product.price|add:"-product.discount_price" }} to show the savings,
+        # but Django's `add` filter cannot resolve a variable reference inside a
+        # quoted string argument, so it silently rendered nothing. Compute it here
+        # instead and expose it as a normal template variable.
+        if self.discount_price is not None and self.discount_price < self.price:
+            return self.price - self.discount_price
         return 0
 
     @property

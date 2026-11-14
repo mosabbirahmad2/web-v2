@@ -156,6 +156,19 @@ def product_detail_view(request, pk):
     product.views_count += 1
     product.save(update_fields=['views_count'])
 
+    # BUG FIX: the analytics dashboard (merchant_analytics) counts
+    # AnalyticsEvent(event_type='product_view') to build the funnel chart, but
+    # nothing ever created that event, so "Product Views" always showed 0.
+    try:
+        AnalyticsEvent.objects.create(
+            ip_address=get_client_ip(request),
+            path=request.path[:250],
+            event_type='product_view',
+            product=product
+        )
+    except Exception:
+        pass
+
     related_products = Product.objects.filter(
         category=product.category, is_active=True
     ).exclude(pk=product.pk)[:5]
@@ -578,8 +591,13 @@ def merchant_edit_product(request, pk):
     if request.method == 'POST':
         product.name = request.POST.get('name', product.name).strip()
         p_code = request.POST.get('product_code', '').strip().upper()
-        if p_code and not Product.objects.filter(product_code=p_code).exclude(pk=product.pk).exists():
-            product.product_code = p_code
+        if p_code:
+            # BUG FIX: previously a duplicate code was silently ignored with no
+            # feedback, leaving the admin thinking the code had been updated.
+            if Product.objects.filter(product_code=p_code).exclude(pk=product.pk).exists():
+                messages.error(request, f'Product code "{p_code}" is already used by another product. Code was NOT changed.')
+            else:
+                product.product_code = p_code
 
         cat_id = request.POST.get('category')
         if cat_id:
@@ -678,6 +696,13 @@ def merchant_category_detail(request, pk):
         if action == 'update_category':
             category.name = request.POST.get('name', category.name).strip()
             category.short_description = request.POST.get('short_description', category.short_description).strip()
+            # BUG FIX: the edit form posts meta_title/meta_description/meta_keywords
+            # (see templates/merchant/category_detail.html) but these were never
+            # read from request.POST, so SEO fields typed by the admin were silently
+            # discarded and never saved to the database.
+            category.meta_title = request.POST.get('meta_title', category.meta_title).strip()
+            category.meta_description = request.POST.get('meta_description', category.meta_description).strip()
+            category.meta_keywords = request.POST.get('meta_keywords', category.meta_keywords).strip()
             if 'banner' in request.FILES: category.banner = request.FILES['banner']
             if 'image' in request.FILES: category.image = request.FILES['image']
             category.save()
