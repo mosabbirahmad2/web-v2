@@ -4,7 +4,7 @@
 {% block meta_description %}{{ product.meta_description|default:product.description|truncatechars:160 }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+<div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-6 sm:py-8">
   <!-- Breadcrumb -->
   <div class="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-6 flex-wrap">
     <a href="/" class="hover:text-amber-900 transition">Home</a>
@@ -221,7 +221,7 @@
   {% if related_products %}
   <div class="mt-12 sm:mt-14 space-y-6">
     <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">You may also like</h3>
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
       {% for rp in related_products %}
       {% include 'shop/partials/product_card.html' with product=rp %}
       {% endfor %}

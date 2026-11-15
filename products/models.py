@@ -13,12 +13,16 @@ from django.db.models import Avg
 from django.db.models.signals import pre_delete, pre_save
 from django.dispatch import receiver
 
-def optimize_image(image_field, max_size=(1000, 1000), quality=85):
+def optimize_image(image_field, max_size=(1000, 1000), quality=88):
     if not image_field or not hasattr(image_field, 'file'):
         return
     try:
         img = Image.open(image_field)
-        if img.mode in ('RGBA', 'LA', 'P'):
+        if img.mode == 'P':
+            img = img.convert('RGBA' if 'transparency' in img.info else 'RGB')
+        elif img.mode == 'LA':
+            img = img.convert('RGBA')
+        elif img.mode not in ('RGB', 'RGBA'):
             img = img.convert('RGB')
         img.thumbnail(max_size, Image.Resampling.LANCZOS)
         out = BytesIO()
@@ -35,6 +39,7 @@ def optimize_image(image_field, max_size=(1000, 1000), quality=85):
 
 class SiteSetting(models.Model):
     site_name = models.CharField(max_length=100, default="Fantacy Tech")
+    logo = models.ImageField(upload_to='site/', blank=True, null=True)
     contact_phone = models.CharField(max_length=30, default="01999999999")
     whatsapp_number = models.CharField(max_length=30, default="01999999999")
     whatsapp_username = models.CharField(max_length=100, default="fantacytech", blank=True)
@@ -57,6 +62,8 @@ class SiteSetting(models.Model):
 
     def save(self, *args, **kwargs):
         self.pk = 1
+        if self.logo and not getattr(self.logo, '_committed', True):
+            optimize_image(self.logo, max_size=(800, 300), quality=92)
         super().save(*args, **kwargs)
         cache.delete('global_site_settings')
 
@@ -504,6 +511,36 @@ def auto_delete_product_image_file(sender, instance, **kwargs):
     if instance.image:
         try:
             instance.image.delete(save=False)
+        except Exception:
+            pass
+
+
+@receiver(pre_save, sender=ProductImage)
+def auto_delete_old_product_gallery_image_on_update(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+    try:
+        old_file = ProductImage.objects.get(pk=instance.pk).image
+    except ProductImage.DoesNotExist:
+        return
+    if old_file and old_file != instance.image:
+        try:
+            old_file.delete(save=False)
+        except Exception:
+            pass
+
+
+@receiver(pre_save, sender=SiteSetting)
+def auto_delete_old_site_logo_on_update(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+    try:
+        old_logo = SiteSetting.objects.get(pk=instance.pk).logo
+    except SiteSetting.DoesNotExist:
+        return
+    if old_logo and old_logo != instance.logo:
+        try:
+            old_logo.delete(save=False)
         except Exception:
             pass
 

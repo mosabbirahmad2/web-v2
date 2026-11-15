@@ -14,6 +14,7 @@ class AnalyticsMiddleware:
             not path.startswith('/django-admin/') and 
             not path.startswith('/mosabbiradmin/') and
             not path.startswith('/api/') and
+            not path.startswith('/.well-known/') and
             path not in ('/favicon.ico', '/robots.txt')):
             
             ua = request.META.get('HTTP_USER_AGENT', '')

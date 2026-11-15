@@ -4,12 +4,49 @@
 <div class="max-w-4xl mx-auto space-y-6">
   <div>
     <h1 class="text-2xl font-black text-slate-900">Site Settings & Contact Info</h1>
-    <p class="text-xs text-slate-400 mt-1">Configure your official storefront numbers, address and shipping rates</p>
+    <p class="text-xs text-slate-400 mt-1">Configure your brand logo, storefront numbers, address and shipping rates</p>
   </div>
 
-  <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-    <form method="POST" class="space-y-6">
+  <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm">
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
       {% csrf_token %}
+
+      <div class="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-800 uppercase">Storefront Brand Logo</label>
+            <p class="text-[11px] text-slate-400">Appears in the website header (transparent PNG/WebP recommended)</p>
+          </div>
+          {% if setting.logo %}
+          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 cursor-pointer">
+            <input type="checkbox" name="remove_logo" value="1" class="rounded"> Remove current logo
+          </label>
+          {% endif %}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4">
+          <div id="siteLogoPrevBox" class="{% if not setting.logo %}hidden{% endif %} flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200">
+            <img id="siteLogoLiveImg" src="{% if setting.logo %}{{ setting.logo.url }}{% endif %}" alt="Logo" class="h-12 w-auto max-w-[180px] object-contain">
+            {% if setting.logo %}
+            <button type="button" id="siteLogoEditExistingBtn"
+              onclick="openExistingImageCropper({ modelType: 'site_logo', objectId: '1', imageUrl: document.getElementById('siteLogoLiveImg').src, aspectRatio: NaN, targetImgIds: ['siteLogoLiveImg'] })"
+              class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100">
+              <i class="fa-solid fa-crop-simple"></i> Edit Existing
+            </button>
+            {% endif %}
+            <button type="button" id="siteLogoEditStagedBtn"
+              onclick="reopenCropperForInput('siteLogoInput', NaN, 'siteLogoLiveImg', 'siteLogoPrevBox')"
+              class="hidden px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100">
+              <i class="fa-solid fa-crop-simple"></i> Edit Staged
+            </button>
+          </div>
+
+          <input type="file" id="siteLogoInput" name="logo" accept="image/*"
+            onchange="openCropper(this, NaN, 'siteLogoLiveImg', 'siteLogoPrevBox', null, () => { document.getElementById('siteLogoEditExistingBtn')?.classList.add('hidden'); document.getElementById('siteLogoEditStagedBtn').classList.remove('hidden'); })"
+            class="flex-1 min-w-[200px] text-xs text-slate-500 border rounded-xl p-2 bg-white">
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Brand Name</label>
@@ -51,9 +88,3 @@
   </div>
 </div>
 {% endblock %}
-
-
-
-
-
-

@@ -4,22 +4,15 @@
 
 {% block extra_head %}
 <style>
-  /* Horizontal product carousels (Flash Sale / Trending / etc.) need their
-     scrollbar hidden while staying swipeable/scrollable -- Tailwind ships no
-     core utility for this, so it's a small hand-written addition here
-     instead of pulling in a plugin for one rule. */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section: compact 2-column promo banner -->
 <section class="bg-white border-b border-slate-200/80">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7">
+  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-6">
     <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 items-center">
-
-      <!-- Left: copy + primary CTA + trust strip -->
       <div>
         <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 mb-3 sm:mb-4">
           {{ site_setting.site_name }}
@@ -45,10 +38,6 @@
         </div>
       </div>
 
-      <!-- Right: decorative promo panel. Built from CSS + icons only (no
-           HeroBanner image model exists in the backend), so it carries the
-           site's own theme color rather than referencing a file that may
-           not exist. Hidden below lg to keep mobile hero compact. -->
       <div class="hidden lg:block relative">
         <div class="rounded-[1.75rem] bg-theme p-8 aspect-[16/10] relative overflow-hidden flex items-center justify-center shadow-xl">
           <div class="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10"></div>
@@ -71,28 +60,23 @@
   </div>
 </section>
 
-<!-- Categories: compact horizontal strip (Dazzle style) -->
-<section id="category-section" class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+<section id="category-section" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5">
   <div class="flex items-baseline justify-between mb-3 sm:mb-4">
     <h2 class="text-lg sm:text-xl font-black text-slate-900">Categories</h2>
     <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">See all &rarr;</a>
   </div>
   <div class="flex flex-wrap gap-3 sm:gap-4">
     {% for cat in categories %}
-    <a href="{% url 'shop_category' cat.slug %}" class="group shrink-0 w-24 sm:w-28 bg-white rounded-2xl border border-slate-200/90 p-2.5 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
-      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-2 group-hover:scale-105 transition-transform duration-300">
+    <a href="{% url 'shop_category' cat.slug %}" class="group shrink-0 w-[calc(33.333%-0.5rem)] sm:w-36 md:w-40 bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+      <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-2.5 group-hover:scale-105 transition-transform duration-300">
         {% if cat.image %}
         <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
         {% else %}
-        <i class="fa-solid fa-shapes text-xl text-slate-300"></i>
+        <i class="fa-solid fa-shapes text-2xl text-slate-300"></i>
         {% endif %}
       </div>
-      <!-- Subcategories intentionally not listed here (that's what bloated
-           the old card's height) -- they're still fully browsable via the
-           header's mega-dropdown, the mobile drawer accordion, and the
-           chips on the category page itself. -->
-      <span class="text-[11px] sm:text-xs font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1 w-full">{{ cat.name }}</span>
-      <span class="text-[9.5px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
+      <span class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1 w-full">{{ cat.name }}</span>
+      <span class="text-[11px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
     </a>
     {% empty %}
     <p class="text-xs text-slate-400">No categories yet.</p>
@@ -100,12 +84,11 @@
   </div>
 </section>
 
-<!-- Dynamic Showcase Sections: compact strips with a single-row carousel -->
 {% for section in showcase_sections %}
 {% with product_count=section.products.all|length %}
-<section class="py-3 sm:py-4">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="rounded-2xl p-4 sm:p-6 shadow-sm
+<section class="py-2.5 sm:py-3">
+  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
+    <div class="rounded-2xl p-3.5 sm:p-5 shadow-sm
       {% if section.background_style == 'brown' %}bg-[#5C3214] text-white
       {% elif section.background_style == 'dark' %}bg-slate-900 text-white
       {% elif section.background_style == 'navy' %}bg-[#0B1F3A] text-white
@@ -116,9 +99,7 @@
       {% elif section.background_style == 'slate' %}bg-slate-100 text-slate-900 border border-slate-200
       {% else %}bg-white text-slate-900 border border-slate-200/80{% endif %}">
 
-      <!-- Dazzle-style compact header: title + inline countdown chips on the
-           left, "See All" on the right. -->
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div class="flex items-center gap-2 flex-wrap">
           <h2 class="text-lg sm:text-xl font-black tracking-tight">{{ section.title }}</h2>
           {% if section.has_countdown and section.end_time %}
@@ -135,13 +116,11 @@
         </a>
       </div>
 
-      <!-- Single-row carousel: 5-up on lg+, swipeable 2-up on mobile. Never
-           wraps into extra rows, so the section can never grow tall. -->
       <div class="relative" data-carousel>
         <div class="overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar" data-carousel-track>
           <div class="flex gap-2.5 sm:gap-3 lg:gap-4">
             {% for product in section.products.all %}
-            <div class="snap-start shrink-0 w-[calc(50%-0.3125rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)] lg:w-[calc(20%-0.8rem)]">
+            <div class="snap-start shrink-0 w-[calc(50%-0.3125rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)] lg:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.666%-0.833rem)]">
               <div class="text-slate-900 h-full">
                 {% include 'shop/partials/product_card.html' with product=product %}
               </div>
@@ -165,17 +144,15 @@
       {% if product_count > 5 %}
       <div class="flex justify-center gap-1.5 mt-3" data-carousel-dots></div>
       {% endif %}
-
     </div>
   </div>
 </section>
 {% endwith %}
 {% endfor %}
 
-<!-- Complete Products Catalog -->
-<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-8 sm:mb-10 pb-4 border-b border-slate-100">
+<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200 mt-4">
+  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 pb-4 border-b border-slate-100">
       <div>
         <span class="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">Full Catalog</span>
         <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
@@ -187,7 +164,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
       {% for product in products %}
       {% include 'shop/partials/product_card.html' with product=product %}
       {% empty %}
@@ -197,7 +174,6 @@
       {% endfor %}
     </div>
 
-    <!-- Pagination Controls -->
     {% if products.has_other_pages %}
     <div class="mt-12 flex justify-between items-center text-xs text-slate-500 border-t pt-6">
       <span>Page {{ products.number }} of {{ products.paginator.num_pages }}</span>
@@ -217,7 +193,6 @@
 
 {% block extra_js %}
 <script>
-  // Countdown badges next to a showcase section's title (dd : hh : mm : ss).
   setInterval(() => {
     document.querySelectorAll('.countdown-timer').forEach(el => {
       const endTime = new Date(el.dataset.endtime).getTime();
@@ -237,18 +212,11 @@
     });
   }, 1000);
 
-  // Dazzle-style single-row product carousels: horizontal scroll-snap with
-  // arrow buttons + pagination dots. One generic implementation drives every
-  // showcase section on the page -- nothing here depends on how many
-  // sections exist or how many products are in each.
   (function initProductCarousels() {
-    const carousels = document.querySelectorAll('[data-carousel]');
-
-    carousels.forEach((carousel) => {
+    document.querySelectorAll('[data-carousel]').forEach((carousel) => {
       const track = carousel.querySelector('[data-carousel-track]');
       const prevBtn = carousel.querySelector('[data-carousel-prev]');
       const nextBtn = carousel.querySelector('[data-carousel-next]');
-      // The dots row is a sibling of the carousel wrapper, not a child of it.
       const dotsWrap = carousel.parentElement.querySelector('[data-carousel-dots]');
       if (!track) return;
 
@@ -275,40 +243,23 @@
         if (!dotsWrap) return;
         const pages = pageCount();
         dotsWrap.innerHTML = '';
-        if (pages <= 1) {
-          dotsWrap.classList.add('hidden');
-          return;
-        }
+        if (pages <= 1) { dotsWrap.classList.add('hidden'); return; }
         dotsWrap.classList.remove('hidden');
         for (let i = 0; i < pages; i++) {
           const dot = document.createElement('button');
           dot.type = 'button';
           dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
-          // bg-current inherits the section's own text color (white on dark
-          // themes, slate-900 on light themes) so dots never need a
-          // per-theme color branch.
           dot.className = 'carousel-dot h-1.5 w-1.5 rounded-full bg-current opacity-25 transition-all duration-200';
-          dot.addEventListener('click', () => {
-            track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
-          });
+          dot.addEventListener('click', () => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' }));
           dotsWrap.appendChild(dot);
         }
         updateDots();
       }
-
-      if (prevBtn) prevBtn.addEventListener('click', () => {
-        track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
-      });
-      if (nextBtn) nextBtn.addEventListener('click', () => {
-        track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
-      });
+      if (prevBtn) prevBtn.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' }));
+      if (nextBtn) nextBtn.addEventListener('click', () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' }));
 
       let scrollTimer;
-      track.addEventListener('scroll', () => {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(updateDots, 80);
-      });
-
+      track.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(updateDots, 80); });
       buildDots();
       window.addEventListener('resize', () => buildDots());
     });

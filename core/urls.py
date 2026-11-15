@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.views.static import serve as static_serve
 from django.contrib.sitemaps.views import sitemap
 from products.sitemaps import ProductSitemap, CategorySitemap
-from products.views import robots_txt_view, favicon_view
+from products.views import robots_txt_view, favicon_view, chrome_devtools_json_view
 
 admin.site.site_header = "Fantacy Tech Administration"
 admin.site.site_title = "Fantacy Tech Portal"
@@ -21,22 +21,13 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('robots.txt', robots_txt_view, name='robots_txt'),
     path('favicon.ico', favicon_view, name='favicon'),
+    path('.well-known/appspecific/com.chrome.devtools.json', chrome_devtools_json_view, name='chrome_devtools_json'),
     path('', include('products.urls')),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else settings.BASE_DIR / 'static')
 
-# BUG FIX: user-uploaded media (product/category images) was only served when DEBUG=True.
-# This project has no S3/cloud storage backend configured, so without this, every product
-# and category image returns 404 in production (gunicorn runs with DEBUG=False).
-# WhiteNoise only serves STATIC_URL, never MEDIA_URL, so we must serve media ourselves here.
 urlpatterns += [
     re_path(r'^media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
 ]
-
-
-
-
-
-

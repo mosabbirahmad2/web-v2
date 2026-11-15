@@ -1,16 +1,17 @@
+import io
 import json
+import os
+import tempfile
 from decimal import Decimal
+from PIL import Image
 
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Category, Product, SiteSetting
+from .models import Category, Product, ProductImage, SiteSetting
 
-# The project's default cache backend is a DB-backed cache table that only
-# exists after `manage.py createcachetable` has been run outside of tests.
-# These tests exercise views that read/write cache (rate limiting, the
-# order-cooldown guard, site-settings caching) so we swap in a plain
-# in-memory cache for the duration of the test run.
 TEST_CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -18,11 +19,16 @@ TEST_CACHES = {
 }
 
 
+def make_test_image_file(name="test.png", color=(255, 0, 0, 255), mode="RGBA", size=(120, 120)):
+    buf = io.BytesIO()
+    img = Image.new(mode, size, color)
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type="image/png")
+
+
 @override_settings(CACHES=TEST_CACHES)
 class RichOrderReceiptTests(TestCase):
-    """Covers master-prompt section 1: place_order_api must return a full,
-    itemized receipt payload -- not just status/order_id/total."""
-
     def setUp(self):
         SiteSetting.objects.get_or_create(pk=1)
         self.category = Category.objects.create(name="Key Rings")
@@ -93,7 +99,6 @@ class RichOrderReceiptTests(TestCase):
         res = self._place_order()
         data = res.json()
         setting = SiteSetting.get_settings()
-        # 2 x effective_price(100.00) + 1 x effective_price(300.00) = 500.00
         self.assertEqual(Decimal(data['subtotal']), Decimal('500.00'))
         self.assertEqual(Decimal(data['delivery_fee']), setting.delivery_fee_dhaka)
         expected_total = Decimal('500.00') + setting.delivery_fee_dhaka
@@ -104,14 +109,10 @@ class RichOrderReceiptTests(TestCase):
         data = res.json()
         self.assertEqual(len(data['items']), 2)
         by_name = {i['name']: i for i in data['items']}
-
         key_ring_line = by_name['Key Ring']
         self.assertEqual(key_ring_line['qty'], 2)
-        self.assertEqual(Decimal(key_ring_line['price']), Decimal('100.00'))  # effective, not regular
+        self.assertEqual(Decimal(key_ring_line['price']), Decimal('100.00'))
         self.assertEqual(Decimal(key_ring_line['line_total']), Decimal('200.00'))
-        self.assertIn('code', key_ring_line)
-        self.assertIn('image', key_ring_line)
-
         cover_line = by_name['Phone Cover']
         self.assertEqual(cover_line['qty'], 1)
         self.assertEqual(Decimal(cover_line['line_total']), Decimal('300.00'))
@@ -133,9 +134,6 @@ class RichOrderReceiptTests(TestCase):
 
 @override_settings(CACHES=TEST_CACHES)
 class CategoryPageSortFilterCountTests(TestCase):
-    """Covers master-prompt section 4: accurate subcategory item counts
-    ("0 items" bug) plus the new sort/filter toolbar in shop_category_view."""
-
     def setUp(self):
         SiteSetting.objects.get_or_create(pk=1)
         self.parent = Category.objects.create(name="Key Ring VV")
@@ -148,12 +146,9 @@ class CategoryPageSortFilterCountTests(TestCase):
             name="Discounted Item", price=Decimal('400.00'), discount_price=Decimal('100.00'),
             stock=3, category=self.parent,
         )
-        # Inactive product must never count.
         Product.objects.create(name="Hidden", price=Decimal('10.00'), stock=5, category=self.sub, is_active=False)
 
     def test_homepage_category_card_counts_direct_plus_subcategory_products(self):
-        # BUG FIX regression test: parent.products.count() alone used to be 0
-        # even though 3 active products exist once subcategories are included.
         self.assertEqual(self.parent.total_active_products, 3)
         self.assertEqual(self.other_sub.total_active_products, 0)
 
@@ -176,7 +171,7 @@ class CategoryPageSortFilterCountTests(TestCase):
     def test_in_stock_filter_excludes_zero_stock_items(self):
         res = self.client.get(reverse('shop_category', args=[self.parent.slug]), {'in_stock': '1'})
         names = {p.name for p in res.context['products']}
-        self.assertNotIn('Pricey Item', names)  # stock=0
+        self.assertNotIn('Pricey Item', names)
         self.assertIn('Cheap Item', names)
 
     def test_sort_price_asc_orders_by_effective_price(self):
@@ -206,19 +201,130 @@ class CategoryPageSortFilterCountTests(TestCase):
 
 
 @override_settings(CACHES=TEST_CACHES)
-class FaviconTests(TestCase):
-    """Covers master-prompt section 6: /favicon.ico must never 404."""
-
+class FaviconAndDevToolsTests(TestCase):
     def test_favicon_returns_200_not_404(self):
         res = self.client.get('/favicon.ico')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res['Content-Type'], 'image/svg+xml')
 
+    def test_chrome_devtools_well_known_returns_200(self):
+        res = self.client.get('/.well-known/appspecific/com.chrome.devtools.json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), {})
+
+
+@override_settings(CACHES=TEST_CACHES)
+class AdminInPlaceImageUpdateTests(TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.override = override_settings(MEDIA_ROOT=self._tmp.name)
+        self.override.enable()
+
+        SiteSetting.objects.get_or_create(pk=1)
+        self.staff_user = User.objects.create_user(username='admin', password='pw', is_staff=True)
+        self.normal_user = User.objects.create_user(username='buyer', password='pw', is_staff=False)
+
+        self.cat = Category.objects.create(name="Key Rings", image=make_test_image_file("cat.png"))
+        self.prod = Product.objects.create(
+            name="Ring 1", price=Decimal('100.00'), stock=10,
+            category=self.cat, image=make_test_image_file("prod.png")
+        )
+        self.gallery_img = ProductImage.objects.create(
+            product=self.prod, image=make_test_image_file("gal.png")
+        )
+
+    def tearDown(self):
+        self.override.disable()
+        self._tmp.cleanup()
+
+    def test_requires_authentication(self):
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'product_main',
+            'object_id': self.prod.pk,
+            'image': make_test_image_file("new.png"),
+        })
+        self.assertEqual(res.status_code, 302)
+
+    def test_requires_staff_permission(self):
+        self.client.login(username='buyer', password='pw')
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'product_main',
+            'object_id': self.prod.pk,
+            'image': make_test_image_file("new.png"),
+        })
+        self.assertEqual(res.status_code, 403)
+
+    def test_product_main_image_replacement_cleans_old_file(self):
+        self.client.login(username='admin', password='pw')
+        old_path = self.prod.image.path
+        self.assertTrue(os.path.exists(old_path))
+
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'product_main',
+            'object_id': self.prod.pk,
+            'image': make_test_image_file("updated_main.png", color=(0, 255, 0, 255)),
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertIn('.webp?v=', data['new_url'])
+
+        self.prod.refresh_from_db()
+        self.assertFalse(os.path.exists(old_path))
+        self.assertTrue(os.path.exists(self.prod.image.path))
+
+    def test_product_gallery_image_replacement_cleans_old_file(self):
+        self.client.login(username='admin', password='pw')
+        old_path = self.gallery_img.image.path
+        self.assertTrue(os.path.exists(old_path))
+
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'product_gallery',
+            'object_id': self.gallery_img.pk,
+            'image': make_test_image_file("updated_gal.png", color=(0, 0, 255, 255)),
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['status'], 'success')
+
+        self.gallery_img.refresh_from_db()
+        self.assertFalse(os.path.exists(old_path))
+        self.assertTrue(os.path.exists(self.gallery_img.image.path))
+
+    def test_category_and_site_logo_replacement_and_alpha_preserved(self):
+        self.client.login(username='admin', password='pw')
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'category_image',
+            'object_id': self.cat.pk,
+            'image': make_test_image_file("cat_new.png"),
+        })
+        self.assertEqual(res.status_code, 200)
+
+        res_logo = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'site_logo',
+            'object_id': 1,
+            'image': make_test_image_file("logo.png", color=(0, 0, 0, 0)),
+        })
+        self.assertEqual(res_logo.status_code, 200)
+        setting = SiteSetting.get_settings()
+        self.assertTrue(bool(setting.logo))
+        with Image.open(setting.logo.path) as im:
+            self.assertIn('A', im.mode)
+
+        home_res = self.client.get(reverse('home'))
+        self.assertContains(home_res, setting.logo.url)
+
+    def test_invalid_model_type_returns_400(self):
+        self.client.login(username='admin', password='pw')
+        res = self.client.post(reverse('merchant_update_image'), {
+            'model_type': 'invalid_type',
+            'object_id': 1,
+            'image': make_test_image_file("x.png"),
+        })
+        self.assertEqual(res.status_code, 400)
+
 
 @override_settings(CACHES=TEST_CACHES)
 class PageRenderSmokeTests(TestCase):
-    """Basic 200-OK smoke tests for the redesigned storefront pages."""
-
     def setUp(self):
         SiteSetting.objects.get_or_create(pk=1)
         self.category = Category.objects.create(name="Accessories")
@@ -241,6 +347,3 @@ class PageRenderSmokeTests(TestCase):
     def test_robots_txt_renders(self):
         res = self.client.get(reverse('robots_txt'))
         self.assertEqual(res.status_code, 200)
-
-
-

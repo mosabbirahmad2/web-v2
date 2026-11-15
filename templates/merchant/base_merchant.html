@@ -28,6 +28,16 @@
     @media (min-width: 1024px) {
       #merchantSidebar { transform: none !important; position: static; }
     }
+    .cropper-checkerboard {
+      background-color: #f8fafc;
+      background-image:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
   </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 flex h-screen overflow-hidden">
@@ -60,24 +70,72 @@
     </div>
   </div>
 
-  <!-- Global Interactive Image Cropper Modal (Zoom In, Zoom Out, Drag) -->
-  <div id="globalCropperModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+  <!-- Global Interactive Admin Image Studio -->
+  <div id="globalCropperModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl w-full max-w-3xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="font-bold text-slate-900 text-base">Adjust, Zoom & Position Image</h3>
-        <button onclick="closeCropperModal()" class="text-slate-400 hover:text-black text-2xl">&times;</button>
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Interactive Photo Studio</h3>
+          <p class="text-[11px] text-slate-400">Zoom, drag, resize, rotate, flip, or choose background fill</p>
+        </div>
+        <button type="button" onclick="closeCropperModal()" class="text-slate-400 hover:text-black text-2xl leading-none">&times;</button>
       </div>
-      <div class="max-h-[360px] overflow-hidden bg-slate-900 rounded-2xl flex items-center justify-center">
-        <img id="cropperTargetImage" src="" class="max-w-full">
+
+      <div id="cropperCanvasWrap" class="h-72 sm:h-80 overflow-hidden bg-white border border-slate-200 rounded-2xl flex items-center justify-center relative">
+        <img id="cropperTargetImage" src="" class="max-w-full block">
       </div>
-      <div class="flex items-center justify-center gap-3 text-xs font-bold text-slate-700 py-1">
-        <button type="button" onclick="cropperInstance.zoom(0.1)" class="px-3.5 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
-        <button type="button" onclick="cropperInstance.zoom(-0.1)" class="px-3.5 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
-        <button type="button" onclick="cropperInstance.rotate(90)" class="px-3.5 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
+
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+          <span class="text-slate-400 mr-1">Ratio:</span>
+          <button type="button" data-crop-ratio="free" onclick="setCropperRatio(NaN, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">Free</button>
+          <button type="button" data-crop-ratio="1" onclick="setCropperRatio(1, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">1:1 Square</button>
+          <button type="button" data-crop-ratio="1.3333" onclick="setCropperRatio(4/3, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">4:3</button>
+          <button type="button" data-crop-ratio="1.7777" onclick="setCropperRatio(16/9, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">16:9</button>
+          <button type="button" data-crop-ratio="3.421" onclick="setCropperRatio(1300/380, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">Banner (1300×380)</button>
+        </div>
+
+        <div class="flex items-center gap-1.5 text-[11px] font-bold">
+          <span class="text-slate-400">Bg Fill:</span>
+          <button type="button" id="cropBgWhiteBtn" onclick="setCropBgFill('white')" class="px-2.5 py-1.5 rounded-lg border border-[#541DFF] bg-purple-50 text-[#541DFF]">White</button>
+          <button type="button" id="cropBgTransBtn" onclick="setCropBgFill('transparent')" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600">Transparent</button>
+        </div>
       </div>
-      <div class="flex gap-3 pt-2">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="stepCropperZoom(-0.15)" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shrink-0" title="Zoom Out">
+            <i class="fa-solid fa-magnifying-glass-minus text-xs"></i>
+          </button>
+          <input type="range" id="cropZoomSlider" min="0.2" max="3.0" step="0.02" value="1" oninput="handleZoomSlider(this.value)" class="flex-1 accent-[#541DFF] cursor-pointer">
+          <button type="button" onclick="stepCropperZoom(0.15)" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shrink-0" title="Zoom In">
+            <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+          </button>
+          <span id="cropZoomPercent" class="text-[11px] font-mono font-bold text-slate-600 w-12 text-right">100%</span>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-[11px] font-bold text-slate-500 shrink-0">Resize px:</span>
+          <input type="number" id="cropOutWidth" min="16" max="4000" placeholder="W" oninput="handleResizeInput('w')" class="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono bg-white outline-none">
+          <span class="text-slate-400 font-bold">&times;</span>
+          <input type="number" id="cropOutHeight" min="16" max="4000" placeholder="H" oninput="handleResizeInput('h')" class="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono bg-white outline-none">
+          <button type="button" id="cropAspectLockBtn" data-locked="true" onclick="toggleResizeAspectLock()" class="w-8 h-8 rounded-lg border border-[#541DFF] bg-purple-50 text-[#541DFF] flex items-center justify-center shrink-0" title="Lock Aspect Ratio">
+            <i class="fa-solid fa-lock text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-700">
+        <button type="button" onclick="cropperRotate(-90)" class="px-3 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-rotate-left"></i> -90°</button>
+        <button type="button" onclick="cropperRotate(90)" class="px-3 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-rotate-right"></i> +90°</button>
+        <button type="button" onclick="cropperFlip('x')" class="px-3 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-arrows-left-right"></i> Flip H</button>
+        <button type="button" onclick="cropperFlip('y')" class="px-3 py-1.5 bg-slate-100 rounded-xl hover:bg-slate-200"><i class="fa-solid fa-arrows-up-down"></i> Flip V</button>
+        <button type="button" onclick="cropperResetAll()" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100"><i class="fa-solid fa-arrow-rotate-left"></i> Reset</button>
+      </div>
+
+      <div class="flex gap-3 pt-2 border-t">
         <button type="button" onclick="closeCropperModal()" class="flex-1 py-2.5 border rounded-xl font-bold text-xs text-slate-600 hover:bg-slate-50">Cancel</button>
-        <button type="button" onclick="applyCroppedImage()" class="flex-1 py-2.5 bg-[#541DFF] text-white rounded-xl font-bold text-xs shadow-md">Apply Image</button>
+        <button type="button" id="cropApplyBtn" onclick="applyCroppedImage()" class="flex-1 py-2.5 bg-[#541DFF] hover:bg-[#4313d6] text-white rounded-xl font-bold text-xs shadow-md">Apply Image</button>
       </div>
     </div>
   </div>
@@ -183,49 +241,332 @@
       document.getElementById('confirmModal').classList.add('hidden');
     }
 
-    // Global Cropper Controller
-    let cropperInstance = null;
-    let cropperTargetImg = null;
-    let cropperTargetContainer = null;
-    let cropperTargetPlaceholder = null;
+    function getMerchantCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
 
-    function openCropper(input, aspectRatio, imgId, containerId, placeholderId) {
+    function showMerchantToast(msg, type = 'success') {
+      const box = document.getElementById('toastContainer');
+      if (!box) return;
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-semibold transition-all duration-300 ${type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'}`;
+      el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i><span>${msg}</span>`;
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    let cropperInstance = null;
+    let cropState = {
+      mode: 'single_input',
+      inputEl: null,
+      imgEl: null,
+      containerEl: null,
+      placeholderEl: null,
+      onFileApplied: null,
+      ajaxConfig: null,
+      filename: 'edited_photo.webp',
+      baseZoomRatio: 1,
+      scaleX: 1,
+      scaleY: 1,
+      bgFill: 'white',
+      customSizeEdited: false,
+      lastCropRatio: 1,
+      initialRatio: 1
+    };
+
+    function highlightRatioButton(ratio) {
+      document.querySelectorAll('.crop-ratio-btn').forEach(btn => {
+        btn.classList.remove('border-[#541DFF]', 'bg-purple-50', 'text-[#541DFF]');
+        btn.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-700');
+        const val = btn.dataset.cropRatio;
+        const match = (isNaN(ratio) && val === 'free') || (!isNaN(ratio) && Math.abs(parseFloat(val) - ratio) < 0.05);
+        if (match) {
+          btn.classList.remove('border-slate-200', 'bg-slate-50', 'text-slate-700');
+          btn.classList.add('border-[#541DFF]', 'bg-purple-50', 'text-[#541DFF]');
+        }
+      });
+    }
+
+    function setCropBgFill(mode) {
+      cropState.bgFill = mode;
+      const wrap = document.getElementById('cropperCanvasWrap');
+      const whiteBtn = document.getElementById('cropBgWhiteBtn');
+      const transBtn = document.getElementById('cropBgTransBtn');
+      if (mode === 'transparent') {
+        wrap.classList.remove('bg-white');
+        wrap.classList.add('cropper-checkerboard');
+        transBtn.className = 'px-2.5 py-1.5 rounded-lg border border-[#541DFF] bg-purple-50 text-[#541DFF]';
+        whiteBtn.className = 'px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600';
+      } else {
+        wrap.classList.remove('cropper-checkerboard');
+        wrap.classList.add('bg-white');
+        whiteBtn.className = 'px-2.5 py-1.5 rounded-lg border border-[#541DFF] bg-purple-50 text-[#541DFF]';
+        transBtn.className = 'px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600';
+      }
+    }
+
+    function setCropperRatio(ratio, btnEl) {
+      if (!cropperInstance) return;
+      cropState.customSizeEdited = false;
+      cropperInstance.setAspectRatio(ratio);
+      highlightRatioButton(ratio);
+    }
+
+    function stepCropperZoom(delta) {
+      if (!cropperInstance) return;
+      const slider = document.getElementById('cropZoomSlider');
+      const next = Math.min(3.0, Math.max(0.2, (parseFloat(slider.value) || 1) + delta));
+      slider.value = next.toFixed(2);
+      handleZoomSlider(next);
+    }
+
+    function handleZoomSlider(val) {
+      if (!cropperInstance) return;
+      const mult = Math.min(3.0, Math.max(0.2, parseFloat(val) || 1));
+      cropperInstance.zoomTo(cropState.baseZoomRatio * mult);
+      document.getElementById('cropZoomPercent').innerText = Math.round(mult * 100) + '%';
+    }
+
+    function toggleResizeAspectLock() {
+      const btn = document.getElementById('cropAspectLockBtn');
+      const locked = btn.dataset.locked === 'true';
+      btn.dataset.locked = locked ? 'false' : 'true';
+      if (locked) {
+        btn.className = 'w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-400 flex items-center justify-center shrink-0';
+        btn.innerHTML = '<i class="fa-solid fa-lock-open text-xs"></i>';
+      } else {
+        btn.className = 'w-8 h-8 rounded-lg border border-[#541DFF] bg-purple-50 text-[#541DFF] flex items-center justify-center shrink-0';
+        btn.innerHTML = '<i class="fa-solid fa-lock text-xs"></i>';
+      }
+    }
+
+    function handleResizeInput(which) {
+      cropState.customSizeEdited = true;
+      const locked = document.getElementById('cropAspectLockBtn').dataset.locked === 'true';
+      if (!locked || !cropState.lastCropRatio) return;
+      const wEl = document.getElementById('cropOutWidth');
+      const hEl = document.getElementById('cropOutHeight');
+      if (which === 'w' && wEl.value) {
+        hEl.value = Math.max(16, Math.round(parseFloat(wEl.value) / cropState.lastCropRatio));
+      } else if (which === 'h' && hEl.value) {
+        wEl.value = Math.max(16, Math.round(parseFloat(hEl.value) * cropState.lastCropRatio));
+      }
+    }
+
+    function cropperRotate(deg) {
+      if (cropperInstance) cropperInstance.rotate(deg);
+    }
+
+    function cropperFlip(axis) {
+      if (!cropperInstance) return;
+      if (axis === 'x') { cropState.scaleX *= -1; cropperInstance.scaleX(cropState.scaleX); }
+      else { cropState.scaleY *= -1; cropperInstance.scaleY(cropState.scaleY); }
+    }
+
+    function cropperResetAll() {
+      if (!cropperInstance) return;
+      cropState.scaleX = 1;
+      cropState.scaleY = 1;
+      cropState.customSizeEdited = false;
+      cropperInstance.reset();
+      cropperInstance.setAspectRatio(cropState.initialRatio);
+      highlightRatioButton(cropState.initialRatio);
+      document.getElementById('cropZoomSlider').value = 1;
+      document.getElementById('cropZoomPercent').innerText = '100%';
+    }
+
+    function mountCropperWithSrc(src, aspectRatio) {
+      const target = document.getElementById('cropperTargetImage');
+      target.crossOrigin = 'anonymous';
+      target.src = src;
+      cropState.scaleX = 1;
+      cropState.scaleY = 1;
+      cropState.customSizeEdited = false;
+      cropState.initialRatio = (aspectRatio === null || aspectRatio === undefined) ? NaN : aspectRatio;
+      setCropBgFill('white');
+      document.getElementById('globalCropperModal').classList.remove('hidden');
+
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(target, {
+        aspectRatio: cropState.initialRatio,
+        viewMode: 0,
+        dragMode: 'move',
+        autoCropArea: 0.9,
+        cropBoxResizable: true,
+        cropBoxMovable: true,
+        movable: true,
+        zoomable: true,
+        zoomOnWheel: true,
+        background: false,
+        responsive: true,
+        ready() {
+          const imgData = cropperInstance.getImageData();
+          cropState.baseZoomRatio = (imgData.naturalWidth > 0) ? (imgData.width / imgData.naturalWidth) : 1;
+          document.getElementById('cropZoomSlider').value = 1;
+          document.getElementById('cropZoomPercent').innerText = '100%';
+          highlightRatioButton(cropState.initialRatio);
+        },
+        zoom(e) {
+          if (cropState.baseZoomRatio > 0) {
+            const mult = e.detail.ratio / cropState.baseZoomRatio;
+            const clamped = Math.min(3.0, Math.max(0.2, mult));
+            document.getElementById('cropZoomSlider').value = clamped.toFixed(2);
+            document.getElementById('cropZoomPercent').innerText = Math.round(mult * 100) + '%';
+          }
+        },
+        crop(e) {
+          if (e.detail.width > 0 && e.detail.height > 0) {
+            cropState.lastCropRatio = e.detail.width / e.detail.height;
+            if (!cropState.customSizeEdited) {
+              document.getElementById('cropOutWidth').value = Math.round(e.detail.width);
+              document.getElementById('cropOutHeight').value = Math.round(e.detail.height);
+            }
+          }
+        }
+      });
+    }
+
+    function openCropper(input, aspectRatio, imgId, containerId, placeholderId, onApplied) {
       if (input.files && input.files[0]) {
-        cropperTargetImg = document.getElementById(imgId);
-        cropperTargetContainer = document.getElementById(containerId);
-        cropperTargetPlaceholder = placeholderId ? document.getElementById(placeholderId) : null;
+        cropState.mode = 'single_input';
+        cropState.inputEl = input;
+        cropState.imgEl = document.getElementById(imgId);
+        cropState.containerEl = containerId ? document.getElementById(containerId) : null;
+        cropState.placeholderEl = placeholderId ? document.getElementById(placeholderId) : null;
+        cropState.onFileApplied = onApplied || null;
+        cropState.filename = (input.files[0].name.replace(/\.[^/.]+$/, '') || 'image') + '.webp';
 
         const reader = new FileReader();
-        reader.onload = function(e) {
-          const target = document.getElementById('cropperTargetImage');
-          target.src = e.target.result;
-          document.getElementById('globalCropperModal').classList.remove('hidden');
-
-          if (cropperInstance) cropperInstance.destroy();
-          cropperInstance = new Cropper(target, {
-            aspectRatio: aspectRatio || 1,
-            viewMode: 1,
-            autoCropArea: 0.9,
-            responsive: true,
-          });
-        };
+        reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio);
         reader.readAsDataURL(input.files[0]);
       }
     }
 
-    function applyCroppedImage() {
-      if (cropperInstance && cropperTargetImg) {
-        const canvas = cropperInstance.getCroppedCanvas();
-        cropperTargetImg.src = canvas.toDataURL();
-        if (cropperTargetContainer) cropperTargetContainer.classList.remove('hidden');
-        if (cropperTargetPlaceholder) cropperTargetPlaceholder.classList.add('hidden');
-        closeCropperModal();
+    function reopenCropperForInput(inputId, aspectRatio, imgId, containerId, placeholderId) {
+      const input = document.getElementById(inputId);
+      if (input && input.files && input.files[0]) {
+        openCropper(input, aspectRatio, imgId, containerId, placeholderId);
+      } else {
+        showMerchantToast('No staged file selected yet.', 'error');
       }
+    }
+
+    function openCropperForFile(file, aspectRatio, onApplyCallback) {
+      cropState.mode = 'gallery_item';
+      cropState.onFileApplied = onApplyCallback;
+      cropState.filename = (file.name.replace(/\.[^/.]+$/, '') || 'gallery') + '.webp';
+      const reader = new FileReader();
+      reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio);
+      reader.readAsDataURL(file);
+    }
+
+    function openExistingImageCropper(cfg) {
+      cropState.mode = 'ajax_existing';
+      cropState.ajaxConfig = cfg;
+      cropState.filename = `${cfg.modelType}_${cfg.objectId}.webp`;
+      mountCropperWithSrc(cfg.imageUrl, cfg.aspectRatio);
+    }
+
+    function applyCroppedImage() {
+      if (!cropperInstance) return;
+      const btn = document.getElementById('cropApplyBtn');
+      const outW = parseInt(document.getElementById('cropOutWidth').value, 10);
+      const outH = parseInt(document.getElementById('cropOutHeight').value, 10);
+      const canvasOpts = {
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+        fillColor: cropState.bgFill === 'white' ? '#FFFFFF' : 'transparent'
+      };
+      if (outW >= 16 && outW <= 4000) canvasOpts.width = outW;
+      if (outH >= 16 && outH <= 4000) canvasOpts.height = outH;
+
+      const canvas = cropperInstance.getCroppedCanvas(canvasOpts);
+      if (!canvas) return;
+
+      btn.disabled = true;
+      btn.innerText = cropState.mode === 'ajax_existing' ? 'Saving...' : 'Applying...';
+
+      const exportCanvas = (mime) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob && mime === 'image/webp') {
+            exportCanvas('image/png');
+            return;
+          }
+          if (!blob) {
+            btn.disabled = false;
+            btn.innerText = 'Apply Image';
+            return;
+          }
+          const ext = blob.type === 'image/png' ? '.png' : '.webp';
+          const fname = cropState.filename.replace(/\.[^/.]+$/, '') + ext;
+          const editedFile = new File([blob], fname, { type: blob.type });
+
+          if (cropState.mode === 'single_input' && cropState.inputEl) {
+            const dt = new DataTransfer();
+            dt.items.add(editedFile);
+            cropState.inputEl.files = dt.files;
+
+            const previewUrl = URL.createObjectURL(blob);
+            if (cropState.imgEl) cropState.imgEl.src = previewUrl;
+            if (cropState.containerEl) cropState.containerEl.classList.remove('hidden');
+            if (cropState.placeholderEl) cropState.placeholderEl.classList.add('hidden');
+            if (cropState.onFileApplied) cropState.onFileApplied(editedFile, previewUrl);
+            closeCropperModal();
+          } else if (cropState.mode === 'gallery_item' && cropState.onFileApplied) {
+            cropState.onFileApplied(editedFile);
+            closeCropperModal();
+          } else if (cropState.mode === 'ajax_existing' && cropState.ajaxConfig) {
+            const cfg = cropState.ajaxConfig;
+            const fd = new FormData();
+            fd.append('model_type', cfg.modelType);
+            fd.append('object_id', cfg.objectId);
+            fd.append('image', editedFile);
+            try {
+              const res = await fetch('/mosabbiradmin/media/update-image/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getMerchantCookie('csrftoken') },
+                body: fd
+              });
+              const data = await res.json();
+              if (data.status === 'success') {
+                (cfg.targetImgIds || []).forEach(tid => {
+                  const im = document.getElementById(tid);
+                  if (im) im.src = data.new_url;
+                });
+                if (cfg.onSuccess) cfg.onSuccess(data.new_url);
+                showMerchantToast('Photo updated successfully!');
+                closeCropperModal();
+              } else {
+                showMerchantToast(data.message || 'Failed to update image.', 'error');
+              }
+            } catch (err) {
+              showMerchantToast('Network error while saving image.', 'error');
+            }
+          }
+          btn.disabled = false;
+          btn.innerText = 'Apply Image';
+        }, mime, 0.92);
+      };
+
+      exportCanvas('image/webp');
     }
 
     function closeCropperModal() {
       document.getElementById('globalCropperModal').classList.add('hidden');
-      if (cropperInstance) cropperInstance.destroy();
+      const btn = document.getElementById('cropApplyBtn');
+      if (btn) { btn.disabled = false; btn.innerText = 'Apply Image'; }
+      if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
     }
   </script>
 </body>

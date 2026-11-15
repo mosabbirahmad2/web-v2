@@ -56,7 +56,7 @@
             <td class="p-4 flex items-center gap-3">
               <div class="w-12 h-12 rounded-xl bg-slate-100 border overflow-hidden shrink-0 flex items-center justify-center">
                 {% if product.image %}
-                <img src="{{ product.image.url }}" class="w-full h-full object-cover">
+                <img id="prodTableImg-{{ product.pk }}" src="{{ product.image.url }}" class="w-full h-full object-cover">
                 {% else %}
                 <i class="fa-solid fa-box text-slate-300"></i>
                 {% endif %}
@@ -170,19 +170,20 @@
       <!-- Main Image Slot (Slot 1) -->
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1">Primary Display Image (Image 1 of 6)</label>
-        <div class="flex items-center gap-3">
-          <input type="file" id="addProductMainImg" name="main_image" accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50" onchange="openCropper(this, 1, 'addMainPreview', 'addMainPrevBox')">
-        </div>
-        <div id="addMainPrevBox" class="hidden mt-2">
+        <input type="file" id="addProductMainImg" name="main_image" accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50" onchange="openCropper(this, 1, 'addMainPreview', 'addMainPrevBox')">
+        <div id="addMainPrevBox" class="hidden mt-2 flex items-center gap-3">
           <img id="addMainPreview" src="" class="w-20 h-20 object-cover rounded-xl border">
+          <button type="button" onclick="reopenCropperForInput('addProductMainImg', 1, 'addMainPreview', 'addMainPrevBox')" class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-lg text-[11px] font-bold hover:bg-purple-100">
+            <i class="fa-solid fa-crop-simple"></i> Edit / Zoom / Resize
+          </button>
         </div>
       </div>
 
       <!-- Gallery Images Slots (Up to 5 images -> Total 6) -->
       <div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Gallery Images (Up to 5 Additional Photos)</label>
-        <input type="file" name="gallery_images" multiple accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50">
-        <p class="text-[10px] text-slate-400 mt-1">Hold Ctrl (Cmd) to select multiple images. Total images on product page: up to 6.</p>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Gallery Images (Up to 5 Additional Photos — Click Edit on any photo)</label>
+        <input type="file" id="addGalleryInput" name="gallery_images" multiple accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50">
+        <div id="addGalleryPreviews" class="flex flex-wrap gap-3 mt-2"></div>
       </div>
 
       <div>
@@ -258,48 +259,62 @@
       <!-- Current Main Image -->
       <div>
         <label class="block text-xs font-bold text-slate-700 mb-1">Primary Display Image (Slot 1)</label>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-3">
           {% if edit_product.image %}
-          <div class="w-16 h-16 rounded-xl border overflow-hidden shrink-0">
-            <img src="{{ edit_product.image.url }}" class="w-full h-full object-cover">
+          <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+            <div class="w-16 h-16 rounded-xl border overflow-hidden shrink-0 bg-white">
+              <img id="editProductLiveMainImg" src="{{ edit_product.image.url }}" class="w-full h-full object-cover">
+            </div>
+            <button type="button"
+              onclick="openExistingImageCropper({ modelType: 'product_main', objectId: '{{ edit_product.pk }}', imageUrl: document.getElementById('editProductLiveMainImg').src, aspectRatio: 1, targetImgIds: ['editProductLiveMainImg', 'prodTableImg-{{ edit_product.pk }}'] })"
+              class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100 whitespace-nowrap">
+              <i class="fa-solid fa-crop-simple"></i> Edit / Zoom / Resize
+            </button>
           </div>
           {% endif %}
-          <input type="file" name="main_image" accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50" onchange="openCropper(this, 1, 'editMainPreview', 'editMainPrevBox')">
+          <input type="file" id="editProductMainImgInput" name="main_image" accept="image/*" class="flex-1 min-w-[200px] text-xs text-slate-500 border rounded-xl p-2 bg-slate-50" onchange="openCropper(this, 1, 'editMainPreview', 'editMainPrevBox')">
         </div>
-        <div id="editMainPrevBox" class="hidden mt-2">
+        <div id="editMainPrevBox" class="hidden mt-2 flex items-center gap-3">
           <img id="editMainPreview" src="" class="w-20 h-20 object-cover rounded-xl border">
+          <button type="button" onclick="reopenCropperForInput('editProductMainImgInput', 1, 'editMainPreview', 'editMainPrevBox')" class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-lg text-[11px] font-bold hover:bg-purple-100">
+            <i class="fa-solid fa-crop-simple"></i> Edit Staged Photo
+          </button>
         </div>
       </div>
 
       <!-- Gallery Images (Current + Add up to 5) -->
       <div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Existing Gallery Photos ({{ edit_product.images.count }}/5)</label>
-        <div class="flex flex-wrap gap-3 mb-2">
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Existing Gallery Photos ({{ edit_product.images.count }}/5)</label>
+        <div class="flex flex-wrap gap-3 mb-3">
           {% for img in edit_product.images.all %}
-          <!-- BUG FIX: this gallery-delete control used to be its own POST
-               form, nested INSIDE the outer "Edit Product" form. Browsers do
-               not support nested forms - the HTML parser silently closes the
-               OUTER form right at that point, which meant every field below
-               it (gallery upload, badge tag, description, and the "Save
-               Changes" submit button) ended up outside the form in the real
-               DOM. That's why clicking "Save Changes" appeared to do nothing
-               on any product that had at least one gallery image. Fixed by
-               removing the nested form and reusing the shared confirm-action
-               modal (already defined once in base_merchant.html) instead. -->
-          <div class="relative w-16 h-16 rounded-xl border overflow-hidden group">
-            <img src="{{ img.image.url }}" class="w-full h-full object-cover">
-            <button type="button"
-              onclick="triggerActionModal('{% url 'merchant_delete_product_image' img.pk %}', 'Remove this gallery photo?')"
-              class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-              <span class="text-white text-xs hover:text-rose-400" title="Delete image"><i class="fa-solid fa-trash"></i></span>
-            </button>
+          <div class="flex flex-col items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+            <div class="w-20 h-20 rounded-xl border overflow-hidden bg-white">
+              <img id="editGalleryLiveImg-{{ img.pk }}" src="{{ img.image.url }}" class="w-full h-full object-cover">
+            </div>
+            <div class="flex items-center gap-1 w-full">
+              <button type="button"
+                onclick="openExistingImageCropper({ modelType: 'product_gallery', objectId: '{{ img.pk }}', imageUrl: document.getElementById('editGalleryLiveImg-{{ img.pk }}').src, aspectRatio: 1, targetImgIds: ['editGalleryLiveImg-{{ img.pk }}'] })"
+                class="flex-1 py-1 bg-purple-50 hover:bg-purple-100 text-[#541DFF] rounded-lg text-[10px] font-bold" title="Edit / Crop / Resize">
+                <i class="fa-solid fa-crop-simple"></i> Edit
+              </button>
+              <button type="button"
+                onclick="triggerActionModal('{% url 'merchant_delete_product_image' img.pk %}', 'Remove this gallery photo?')"
+                class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold" title="Delete image">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
           </div>
           {% empty %}
           <span class="text-xs text-slate-400">No additional gallery photos.</span>
           {% endfor %}
         </div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Add More Gallery Images (Total up to 5)</label>
-        <input type="file" name="gallery_images" multiple accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50">
+        {% if remaining_gallery_slots > 0 %}
+        <label class="block text-xs font-bold text-slate-700 mb-1">Add More Gallery Images (Up to {{ remaining_gallery_slots }} more)</label>
+        <input type="file" id="editGalleryInput" name="gallery_images" multiple accept="image/*" class="w-full text-xs text-slate-500 border rounded-xl p-2 bg-slate-50">
+        <div id="editGalleryPreviews" class="flex flex-wrap gap-3 mt-2"></div>
+        {% else %}
+        <p class="text-[11px] font-bold text-amber-700">Maximum 5 gallery photos reached. Delete one above to upload another.</p>
+        {% endif %}
       </div>
 
       <div>
@@ -325,6 +340,80 @@
   function toggleAllProdCheckboxes(master) {
     document.querySelectorAll('.prod-checkbox').forEach(cb => cb.checked = master.checked);
   }
+
+  class GalleryUploadManager {
+    constructor(inputId, previewId, maxFiles) {
+      this.input = document.getElementById(inputId);
+      this.previewWrap = document.getElementById(previewId);
+      this.maxFiles = maxFiles || 5;
+      this.files = [];
+      if (!this.input || !this.previewWrap) return;
+
+      this.input.addEventListener('change', () => {
+        const picked = Array.from(this.input.files || []);
+        for (const f of picked) {
+          if (this.files.length >= this.maxFiles) {
+            showMerchantToast(`Maximum ${this.maxFiles} gallery photo(s) allowed.`, 'error');
+            break;
+          }
+          this.files.push(f);
+        }
+        this.sync();
+        this.render();
+      });
+    }
+
+    sync() {
+      const dt = new DataTransfer();
+      this.files.forEach(f => dt.items.add(f));
+      this.input.files = dt.files;
+    }
+
+    editAt(idx) {
+      if (!this.files[idx]) return;
+      openCropperForFile(this.files[idx], 1, (editedFile) => {
+        this.files[idx] = editedFile;
+        this.sync();
+        this.render();
+      });
+    }
+
+    removeAt(idx) {
+      this.files.splice(idx, 1);
+      this.sync();
+      this.render();
+    }
+
+    render() {
+      this.previewWrap.innerHTML = '';
+      this.files.forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        const card = document.createElement('div');
+        card.className = 'flex flex-col items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-200';
+        card.innerHTML = `
+          <div class="w-20 h-20 rounded-xl border overflow-hidden bg-white">
+            <img src="${url}" class="w-full h-full object-cover">
+          </div>
+          <div class="flex items-center gap-1 w-full">
+            <button type="button" class="edit-gal-btn flex-1 py-1 bg-purple-50 hover:bg-purple-100 text-[#541DFF] rounded-lg text-[10px] font-bold">
+              <i class="fa-solid fa-crop-simple"></i> Edit
+            </button>
+            <button type="button" class="rm-gal-btn px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `;
+        card.querySelector('.edit-gal-btn').onclick = () => this.editAt(idx);
+        card.querySelector('.rm-gal-btn').onclick = () => this.removeAt(idx);
+        this.previewWrap.appendChild(card);
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    new GalleryUploadManager('addGalleryInput', 'addGalleryPreviews', 5);
+    new GalleryUploadManager('editGalleryInput', 'editGalleryPreviews', {{ remaining_gallery_slots|default:5 }});
+  });
 </script>
 {% endblock %}
 

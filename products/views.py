@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import uuid
 from decimal import Decimal
 from datetime import timedelta
 from functools import wraps
@@ -209,6 +210,9 @@ def favicon_view(request):
             return HttpResponse(f.read(), content_type='image/svg+xml')
     except FileNotFoundError:
         raise Http404
+def chrome_devtools_json_view(request):
+    return JsonResponse({})
+
 def robots_txt_view(request):
     content = (
         "User-agent: *\n"
@@ -509,6 +513,54 @@ def place_order_api(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+# --- IN-PLACE MEDIA UPDATE API (FOR ALREADY-UPLOADED PHOTOS) ---
+@login_required(login_url='admin_login')
+@require_POST
+def merchant_update_image(request):
+    if not request.user.is_staff:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    model_type = request.POST.get('model_type', '').strip()
+    object_id = request.POST.get('object_id', '').strip()
+    uploaded = request.FILES.get('image')
+
+    if not model_type or not object_id or not uploaded:
+        return JsonResponse({'status': 'error', 'message': 'Missing model_type, object_id, or image.'}, status=400)
+
+    ext = os.path.splitext(uploaded.name)[1].lower() or '.webp'
+    uploaded.name = f"{model_type}_{object_id}_{uuid.uuid4().hex[:8]}{ext}"
+
+    if model_type == 'product_main':
+        obj = get_object_or_404(Product, pk=object_id)
+        obj.image = uploaded
+        obj.save()
+        new_url = obj.image.url if obj.image else ''
+    elif model_type == 'product_gallery':
+        obj = get_object_or_404(ProductImage, pk=object_id)
+        obj.image = uploaded
+        obj.save()
+        new_url = obj.image.url if obj.image else ''
+    elif model_type == 'category_image':
+        obj = get_object_or_404(Category, pk=object_id)
+        obj.image = uploaded
+        obj.save()
+        new_url = obj.image.url if obj.image else ''
+    elif model_type == 'category_banner':
+        obj = get_object_or_404(Category, pk=object_id)
+        obj.banner = uploaded
+        obj.save()
+        new_url = obj.banner.url if obj.banner else ''
+    elif model_type == 'site_logo':
+        obj = SiteSetting.get_settings()
+        obj.logo = uploaded
+        obj.save()
+        new_url = obj.logo.url if obj.logo else ''
+    else:
+        return JsonResponse({'status': 'error', 'message': f'Unsupported model_type: {model_type}'}, status=400)
+
+    ts = int(timezone.now().timestamp() * 1000)
+    return JsonResponse({'status': 'success', 'new_url': f"{new_url}?v={ts}"})
+
 # --- MERCHANT ADMIN ---
 @login_required(login_url='admin_login')
 def merchant_dashboard(request):
@@ -631,8 +683,10 @@ def merchant_products(request, edit_pk=None):
         products_qs = products_qs.filter(category_id=cat_id)
 
     edit_product = None
+    remaining_gallery_slots = 5
     if edit_pk:
         edit_product = get_object_or_404(Product, pk=edit_pk)
+        remaining_gallery_slots = max(0, 5 - edit_product.images.count())
 
     paginator = Paginator(products_qs, 15)
     page_obj = paginator.get_page(request.GET.get('page', 1))
@@ -648,6 +702,7 @@ def merchant_products(request, edit_pk=None):
         'products': page_obj,
         'categories': categories,
         'edit_product': edit_product,
+        'remaining_gallery_slots': remaining_gallery_slots,
         'active_menu': 'products',
         'search_query': search,
         'selected_category': cat_id,
@@ -774,10 +829,16 @@ def merchant_categories(request):
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         short_description = request.POST.get('short_description', '').strip()
+        meta_title = request.POST.get('meta_title', '').strip()
+        meta_description = request.POST.get('meta_description', '').strip()
+        meta_keywords = request.POST.get('meta_keywords', '').strip()
         banner = request.FILES.get('banner')
         image = request.FILES.get('image')
         if name:
-            Category.objects.create(name=name, short_description=short_description, banner=banner, image=image)
+            Category.objects.create(
+                name=name, short_description=short_description, banner=banner, image=image,
+                meta_title=meta_title, meta_description=meta_description, meta_keywords=meta_keywords
+            )
             messages.success(request, f'Category "{name}" created successfully!')
         return redirect('merchant_categories')
 
@@ -954,6 +1015,15 @@ def merchant_settings(request):
         setting.announcement_notice = request.POST.get('announcement_notice', setting.announcement_notice).strip()
         setting.delivery_fee_dhaka = Decimal(request.POST.get('delivery_fee_dhaka', setting.delivery_fee_dhaka))
         setting.delivery_fee_outside = Decimal(request.POST.get('delivery_fee_outside', setting.delivery_fee_outside))
+        if request.POST.get('remove_logo') == '1' and 'logo' not in request.FILES:
+            if setting.logo:
+                try:
+                    setting.logo.delete(save=False)
+                except Exception:
+                    pass
+            setting.logo = None
+        elif 'logo' in request.FILES:
+            setting.logo = request.FILES['logo']
         setting.save()
         messages.success(request, 'Site settings updated successfully!')
         return redirect('merchant_settings')
