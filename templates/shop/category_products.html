@@ -5,61 +5,101 @@
 {% if category.meta_keywords %}<meta name="keywords" content="{{ category.meta_keywords }}">{% endif %}
 {% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-  <div class="mb-8">
-    <a href="/" class="text-xs font-bold text-amber-900">&larr; Back to Home</a>
-    <h1 class="text-3xl font-black text-slate-900 mt-2">{{ category.name }}</h1>
+<!-- Category Hero Banner -->
+{% if category.banner %}
+<div class="relative h-40 sm:h-56 w-full overflow-hidden">
+  <img src="{{ category.banner.url }}" alt="{{ category.name }}" class="w-full h-full object-cover">
+  <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-5 w-full">
+      <h1 class="text-xl sm:text-3xl font-black text-white">{{ category.name }}</h1>
+      {% if category.short_description %}
+      <p class="text-xs sm:text-sm text-white/80 mt-1 max-w-xl">{{ category.short_description }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+  <div class="mb-6">
+    <!-- Breadcrumbs -->
+    <nav class="text-xs font-bold text-slate-500 flex items-center gap-1.5 flex-wrap mb-3">
+      <a href="/" class="hover:text-amber-900 transition">Home</a>
+      {% if category.parent %}
+      <span>/</span>
+      <a href="{% url 'shop_category' category.parent.slug %}" class="hover:text-amber-900 transition">{{ category.parent.name }}</a>
+      {% endif %}
+      <span>/</span>
+      {% if selected_sub %}
+      <a href="{% url 'shop_category' category.slug %}" class="hover:text-amber-900 transition">{{ category.name }}</a>
+      <span>/</span>
+      <span class="text-amber-900">{{ selected_sub.name }}</span>
+      {% else %}
+      <span class="text-amber-900">{{ category.name }}</span>
+      {% endif %}
+    </nav>
+
+    {% if not category.banner %}
+    <h1 class="text-2xl sm:text-3xl font-black text-slate-900">{{ category.name }}</h1>
     {% if category.short_description %}
     <p class="text-xs text-slate-500 mt-1">{{ category.short_description }}</p>
     {% endif %}
+    {% endif %}
   </div>
 
-  <!-- Sub-category filter chips -->
-  <!-- BUG FIX: sub-categories existed in the database and were even already
-       being combined into this page's product query, but customers had no
-       visible way to browse/filter by them ("sub category doesn't show").
-       These chips fix that and link to ?sub=<id> which the view now honors. -->
+  <!-- Sub-category filter chips with accurate item counts -->
   {% if subcategories %}
-  <div class="flex items-center gap-2 flex-wrap mb-8">
+  <div class="flex items-center gap-2 flex-wrap mb-6">
     <a href="{% url 'shop_category' category.slug %}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if not selected_sub %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
-      All {{ category.name }}
+      All {{ category.name }} ({{ category.total_active_products }})
     </a>
     {% for sub in subcategories %}
     <a href="?sub={{ sub.id }}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if selected_sub.id == sub.id %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
-      {{ sub.name }}
+      {{ sub.name }} ({{ sub.active_product_count }})
     </a>
     {% endfor %}
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-    {% for product in products %}
-    <div class="bg-white rounded-3xl p-4 border border-slate-100 hover:shadow-xl transition flex flex-col justify-between">
-      <div>
-        <a href="{% url 'product_detail' product.pk %}" class="aspect-square rounded-2xl bg-slate-50 overflow-hidden mb-3 flex items-center justify-center p-2 block">
-          {% if product.image %}<img src="{{ product.image.url }}" class="w-full h-full object-contain">{% endif %}
-        </a>
-        <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs text-slate-800 line-clamp-1 block">{{ product.name }}</a>
-      </div>
-      <div class="mt-4">
-        <div class="font-black text-slate-900 mb-3">৳ {{ product.effective_price }}</div>
-        {% if product.stock > 0 %}
-        <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}')" class="w-full bg-slate-900 hover:bg-black text-white py-2 rounded-xl text-xs font-bold">
-          Add to Bag
-        </button>
-        {% else %}
-        <button disabled class="w-full bg-slate-200 text-slate-400 py-2 rounded-xl text-xs font-bold cursor-not-allowed">
-          Out of Stock
-        </button>
-        {% endif %}
-      </div>
+  <!-- Sort & Filter Toolbar -->
+  <form method="get" id="filterSortForm" class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white border border-slate-200 rounded-2xl p-3 sm:p-4">
+    {% if selected_sub %}<input type="hidden" name="sub" value="{{ selected_sub.id }}">{% endif %}
+    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 min-h-[42px]">
+      <input type="checkbox" name="in_stock" value="1" {% if in_stock_only %}checked{% endif %} onchange="document.getElementById('filterSortForm').submit()" class="w-4 h-4 rounded border-slate-300">
+      In Stock Only
+    </label>
+    <div class="flex items-center gap-2">
+      <label for="sortSelect" class="text-xs font-bold text-slate-500 hidden sm:inline">Sort by:</label>
+      <select id="sortSelect" name="sort" onchange="document.getElementById('filterSortForm').submit()" class="border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold bg-slate-50 outline-none min-h-[42px]">
+        <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest</option>
+        <option value="price_asc" {% if current_sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+        <option value="price_desc" {% if current_sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+        <option value="discount" {% if current_sort == 'discount' %}selected{% endif %}>Biggest Discount</option>
+      </select>
     </div>
+  </form>
+
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+    {% for product in products %}
+    {% include 'shop/partials/product_card.html' with product=product %}
     {% empty %}
     <div class="col-span-full text-center py-20 text-slate-400">No products found in this category yet.</div>
     {% endfor %}
   </div>
+
+  <!-- Pagination Controls (preserves sub / sort / in_stock across pages) -->
+  {% if products.has_other_pages %}
+  <div class="mt-12 flex justify-between items-center text-xs text-slate-500 border-t pt-6">
+    <span>Page {{ products.number }} of {{ products.paginator.num_pages }}</span>
+    <div class="flex gap-2">
+      {% if products.has_previous %}
+      <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ products.previous_page_number }}" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">&larr; Previous</a>
+      {% endif %}
+      {% if products.has_next %}
+      <a href="?{% if pagination_qs %}{{ pagination_qs }}&{% endif %}page={{ products.next_page_number }}" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Next &rarr;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
-
-
-

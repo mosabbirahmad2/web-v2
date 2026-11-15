@@ -3,66 +3,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>{% block title %}{{ site_setting.meta_title|default:site_setting.site_name }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ site_setting.meta_description }}{% endblock %}">
   {% if site_setting.meta_keywords %}<meta name="keywords" content="{{ site_setting.meta_keywords }}">{% endif %}
+
   <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
-    /* ============================================================
-       Dynamic theme variables, driven by SiteSetting (merchant-configurable).
-       Every primary accent/button should read from --brand-primary instead
-       of a hardcoded hex, so a merchant's chosen theme_color (and light/dark
-       theme_mode) is respected consistently site-wide.
-       ============================================================ */
     :root {
       --brand-primary: {{ site_setting.theme_color|default:"#5C3214" }};
-      --brand-primary-contrast: #ffffff;
     }
-    {% if site_setting.theme_mode == "dark" %}
-    :root { --surface-bg: #0f172a; --surface-fg: #e2e8f0; }
-    {% else %}
-    :root { --surface-bg: #FAF9F5; --surface-fg: #0f172a; }
-    {% endif %}
-
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .bg-theme, .bg-brand-primary { background-color: var(--brand-primary); }
-    .text-theme, .text-brand-primary { color: var(--brand-primary); }
-    .border-brand-primary { border-color: var(--brand-primary); }
+    .bg-theme { background-color: var(--brand-primary); }
+    .text-theme { color: var(--brand-primary); }
+    .border-theme { border-color: var(--brand-primary); }
+
+    /* iOS/Android auto-zoom on inputs below 16px is avoided by keeping
+       inputs at text-base (16px) on mobile and shrinking only on sm+. */
+    input, select, textarea { font-size: 16px; }
+    @media (min-width: 640px) { input, select, textarea { font-size: inherit; } }
+
     .cart-drawer { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     .cart-hidden { transform: translateX(100%); }
-    @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-    .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 25s linear infinite; }
+    .nav-drawer-hidden { transform: translateX(-100%); }
 
-    /* Professional toast notifications (replaces blocking JS alert() popups) */
+    /* REDESIGN: the old single-direction @keyframes marquee started the text
+       fully off-screen to the right and slid it clear across -- on narrow
+       mobile widths this meant long announcement text was invisible for a
+       large chunk of the animation and visually collided with the live-dot
+       indicator at the start. Using a translateX(0%) -> (-100%) loop with
+       the text duplicated keeps it flowing continuously with no dead gap,
+       and the hover-pause rule now actually has something to pause cleanly. */
+    @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+    .marquee-track { display: flex; width: max-content; animation: marquee 22s linear infinite; }
+    .marquee-wrap:hover .marquee-track { animation-play-state: paused; }
+
     @keyframes toastIn { from { opacity: 0; transform: translateY(-12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-12px) scale(.98); } }
     .toast-item { animation: toastIn .25s ease-out forwards; }
     .toast-item.toast-leaving { animation: toastOut .2s ease-in forwards; }
-    .toast-action-btn { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
 
-    /* Subtle "pop" on the cart badge whenever an item is successfully added */
-    @keyframes cartBadgePop { 0% { transform: scale(1); } 45% { transform: scale(1.4); } 100% { transform: scale(1); } }
-    .cart-badge-pop { animation: cartBadgePop .35s ease; }
+    @keyframes badgeBounce { 0%, 100% { transform: scale(1); } 35% { transform: scale(1.35); } 60% { transform: scale(0.92); } }
+    .badge-bounce { animation: badgeBounce .4s ease-in-out; }
 
-    /* "Add to Bag" buttons that already hold this product in the cart */
-    .add-btn-in-cart {
-      background-color: #ecfdf5 !important;
-      color: #047857 !important;
-      border: 1px solid #a7f3d0 !important;
-      cursor: pointer;
-    }
-    .add-btn-in-cart:hover { background-color: #d1fae5 !important; }
-
-    /* Subcategory mega-dropdown */
+    /* Subcategory mega-dropdown (desktop only) */
     .nav-cat-item { position: relative; }
     .nav-cat-dropdown {
       position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 200px;
@@ -76,46 +68,210 @@
     .nav-cat-item:focus-within .nav-cat-dropdown {
       opacity: 1; visibility: visible; transform: translateY(0);
     }
+
+    /* "In Your Bag" button state once a product is in the cart */
+    .btn-in-bag { background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; cursor: default; }
+    .btn-in-bag:hover { background-color: #ecfdf5 !important; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-[#FAF9F5] text-slate-900 flex flex-col min-h-screen">
+<body class="{% if site_setting.theme_mode == 'dark' %}bg-slate-950 text-slate-100{% else %}bg-[#FAF9F5] text-slate-900{% endif %} flex flex-col min-h-screen">
 
-  <!-- Main Header with VISIBLE CLICKABLE SEARCH BUTTON -->
-  <!-- NOTE: the old top info bar (Helpline / WhatsApp / "100% Quality
-       Verified" / "Cash on Delivery Nationwide") has been removed per
-       request. The helpline number is still shown in the footer, so the
-       contact info isn't lost — just decluttered from the header. -->
+  <!-- Professional Toast Notification Stack (replaces window.alert()) -->
+  <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
+
+  <!-- Rich Order-Confirmed Receipt Modal -->
+  <div id="orderSuccessModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-3 sm:p-4">
+    <div id="orderReceiptCard" class="bg-white rounded-3xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 sm:p-7 text-center space-y-4 border-b border-slate-100">
+        <div class="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div>
+          <h3 id="osGreeting" class="text-lg font-black text-slate-900 leading-snug">Order Confirmed!</h3>
+          <p class="text-xs text-slate-500 mt-1">We'll call you shortly to confirm delivery.</p>
+        </div>
+
+        <!-- Order ID row with Copy button -->
+        <div class="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-left">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Order ID</div>
+            <div id="osOrderId" class="font-mono font-black text-amber-900 text-sm"></div>
+          </div>
+          <button type="button" onclick="copyOrderId()" id="copyOrderIdBtn" class="text-[11px] font-bold px-3 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 transition shrink-0">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+        </div>
+
+        <!-- Compact 3-step status tracker -->
+        <div class="flex items-start justify-between text-[10px] font-bold text-slate-400 px-1">
+          <div class="flex flex-col items-center gap-1.5 flex-1">
+            <div class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-check"></i></div>
+            <span class="text-emerald-600 text-center leading-tight">Order<br>Placed</span>
+          </div>
+          <div class="flex-1 h-0.5 bg-slate-200 mt-3.5"></div>
+          <div class="flex flex-col items-center gap-1.5 flex-1">
+            <div class="w-7 h-7 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs"><i class="fa-solid fa-phone"></i></div>
+            <span class="text-center leading-tight">Verification<br>Call</span>
+          </div>
+          <div class="flex-1 h-0.5 bg-slate-200 mt-3.5"></div>
+          <div class="flex flex-col items-center gap-1.5 flex-1">
+            <div class="w-7 h-7 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs"><i class="fa-solid fa-truck"></i></div>
+            <span class="text-center leading-tight">Home<br>Delivery</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6 sm:p-7 space-y-4">
+        <!-- Ordered Items & Quantity -->
+        <div>
+          <h4 class="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Ordered Items</h4>
+          <div id="osItemsList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Price Breakdown -->
+        <div class="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-4 text-xs space-y-1.5 font-semibold text-slate-800">
+          <div class="flex justify-between"><span>Items Subtotal</span><span id="osSubtotal">৳ 0</span></div>
+          <div id="osDiscountRow" class="hidden justify-between text-emerald-700"><span>Coupon Discount</span><span id="osDiscount">- ৳ 0</span></div>
+          <div class="flex justify-between"><span>Delivery Fee</span><span id="osDeliveryFee">৳ 0</span></div>
+          <div class="flex justify-between"><span>Payment Method</span><span>Cash on Delivery</span></div>
+          <div class="border-t border-amber-200 pt-1.5 flex justify-between text-sm font-black text-amber-900">
+            <span>Grand Total</span><span id="osOrderTotal"></span>
+          </div>
+        </div>
+
+        <!-- Delivery Destination -->
+        <div class="rounded-2xl border border-slate-100 p-4 text-xs space-y-1.5">
+          <div class="font-bold text-slate-900 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-amber-900"></i> Delivery Destination</div>
+          <p id="osAddress" class="text-slate-600 leading-relaxed"></p>
+          <span id="osEta" class="inline-block mt-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2.5 py-1 rounded-full"></span>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <button type="button" onclick="closeOrderSuccessModal()" class="w-full py-3 bg-theme text-white rounded-2xl font-bold text-xs hover:opacity-95 transition">
+            Continue Shopping
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="window.print()" class="py-2.5 border border-slate-200 rounded-2xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition">
+              <i class="fa-solid fa-print"></i> Print Receipt
+            </button>
+            <a id="osWhatsappLink" href="#" target="_blank" rel="noopener" class="py-2.5 border border-slate-200 rounded-2xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition text-center">
+              <i class="fa-brands fa-whatsapp text-emerald-600"></i> WhatsApp Support
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Slide-Out Category & Subcategory Drawer -->
+  <div id="mobileNavBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-[90]" onclick="closeMobileNav()"></div>
+  <div id="mobileNavDrawer" class="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-2xl z-[100] cart-drawer nav-drawer-hidden flex flex-col">
+    <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-[#FAF9F5]">
+      <span class="text-base font-black text-slate-900 uppercase tracking-tight">{{ site_setting.site_name }}</span>
+      <button type="button" onclick="closeMobileNav()" class="text-slate-400 hover:text-black text-xl p-1" aria-label="Close menu">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-3 space-y-1">
+      <a href="/#all-products-section" onclick="closeMobileNav()" class="block px-3.5 py-3 rounded-xl bg-amber-100/70 text-amber-900 font-bold text-sm min-h-[42px] flex items-center">
+        All Products
+      </a>
+      {% for cat in global_categories %}
+      <div class="border-b border-slate-100 last:border-0">
+        <div class="flex items-center">
+          <a href="{% url 'shop_category' cat.slug %}" class="flex-1 px-3.5 py-3 font-bold text-sm text-slate-800 min-h-[42px] flex items-center">{{ cat.name }}</a>
+          {% if cat.subcategories.all %}
+          <button type="button" onclick="toggleMobileAccordion({{ cat.id }})" class="w-11 h-11 flex items-center justify-center text-slate-400 shrink-0" aria-label="Expand subcategories">
+            <i id="mobileAccIcon{{ cat.id }}" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+          </button>
+          {% endif %}
+        </div>
+        {% if cat.subcategories.all %}
+        <div id="mobileAcc{{ cat.id }}" class="hidden pl-4 pb-2 space-y-0.5">
+          {% for sub in cat.subcategories.all %}
+          {% if sub.is_active %}
+          <a href="{% url 'shop_category' sub.slug %}" onclick="closeMobileNav()" class="block px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-amber-50 hover:text-amber-900 min-h-[38px] flex items-center">
+            {{ sub.name }}
+          </a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="p-4 border-t border-slate-100 space-y-2.5 bg-[#FAF9F5]">
+      <a href="tel:{{ site_setting.contact_phone }}" class="flex items-center gap-2.5 text-xs font-bold text-slate-700 min-h-[38px]">
+        <i class="fa-solid fa-phone text-emerald-600"></i> Helpline: {{ site_setting.contact_phone }}
+      </a>
+      <a href="https://wa.me/{{ site_setting.whatsapp_number }}" target="_blank" rel="noopener" class="flex items-center gap-2.5 text-xs font-bold text-slate-700 min-h-[38px]">
+        <i class="fa-brands fa-whatsapp text-emerald-600"></i> Chat on WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Header -->
   <header class="bg-white sticky top-0 z-40 border-b border-slate-200 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
+    <!-- Mobile: Row 1 (hamburger + logo + bag) -->
+    <div class="md:hidden max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
+      <button type="button" onclick="openMobileNav()" aria-label="Open menu" class="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+      <a href="/" class="flex-1 flex items-center justify-center gap-1 min-w-0">
+        <span class="text-xl font-black italic tracking-tighter text-slate-900 uppercase truncate">
+          {{ site_setting.site_name }}<span class="text-[9px] not-italic font-bold align-super text-theme">™</span>
+        </span>
+      </a>
+      <button type="button" onclick="toggleCart()" class="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
+        <i class="fa-solid fa-bag-shopping text-sm"></i>
+        <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+      </button>
+    </div>
+    <!-- Mobile: Row 2 (full-width search) -->
+    <div class="md:hidden px-4 pb-3 relative">
+      <form action="/" method="GET" class="relative flex items-center">
+        <input type="text" name="q" id="storeSearchMobile" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdownMobile')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-base focus:outline-none focus:border-slate-900 bg-slate-50/70">
+        <button type="submit" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+      </form>
+      <div id="searchDropdownMobile" class="hidden absolute left-4 right-4 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
+    </div>
+
+    <!-- Desktop: single row -->
+    <div class="hidden md:flex max-w-7xl mx-auto px-6 h-20 items-center justify-between gap-4">
       <a href="/" class="flex items-center gap-1.5 shrink-0">
         <span class="text-2xl sm:text-3xl font-black italic tracking-tighter text-slate-900 uppercase">
-          {{ site_setting.site_name }}<span class="text-xs not-italic font-bold align-super text-amber-900">™</span>
+          {{ site_setting.site_name }}<span class="text-xs not-italic font-bold align-super text-theme">™</span>
         </span>
       </a>
 
-      <!-- Search Bar with Clickable Button -->
       <div class="relative flex-1 max-w-xl mx-2">
         <form action="/" method="GET" class="relative flex items-center">
-          <input type="text" name="q" id="storeSearch" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value)" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-xs focus:outline-none focus:border-slate-900 bg-slate-50/70">
+          <input type="text" name="q" id="storeSearch" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdown')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-xs focus:outline-none focus:border-slate-900 bg-slate-50/70">
           <button type="submit" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
             <i class="fa-solid fa-magnifying-glass"></i>
           </button>
         </form>
-        <!-- Live Search Dropdown -->
         <div id="searchDropdown" class="hidden absolute left-0 right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
       </div>
 
-      <!-- Bag Button -->
-      <button onclick="toggleCart()" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
+      <button type="button" onclick="toggleCart()" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
         <i class="fa-solid fa-bag-shopping text-sm"></i>
-        <span id="cartCountBadge" class="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+        <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
       </button>
     </div>
 
-    <!-- Category Strip -->
-    <div class="bg-white border-t border-slate-100 px-4 sm:px-6">
-      <div class="max-w-7xl mx-auto flex items-center gap-3 py-2 overflow-x-auto text-xs font-bold whitespace-nowrap">
+    <!-- Desktop-only category strip. Mobile browses categories via the
+         slide-out drawer above instead, so this never needs to scroll
+         horizontally -- which is also the BUG FIX for the dropdown
+         clipping: .nav-cat-dropdown used to live inside a wrapper with
+         overflow-x-auto, and per the CSS spec, setting overflow-x to
+         anything but visible forces overflow-y to compute to "auto" too,
+         which silently clipped the dropdown's vertical overflow. Removing
+         the horizontal scroll (now just flex-wrap) removes that clipping
+         context entirely. -->
+    <div class="hidden md:block bg-white border-t border-slate-100 px-6">
+      <div class="max-w-7xl mx-auto flex items-center gap-3 py-2 flex-wrap text-xs font-bold">
         <a href="/#all-products-section" class="bg-amber-100/70 text-amber-900 px-3.5 py-1.5 rounded-xl shrink-0">ALL PRODUCTS</a>
         {% for cat in global_categories %}
         <div class="nav-cat-item shrink-0">
@@ -123,10 +279,6 @@
             {{ cat.name }}
             {% if cat.subcategories.all %}<i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>{% endif %}
           </a>
-          <!-- BUG FIX: subcategories were fetched into global_categories (see
-               context_processors.py) but never rendered anywhere on the
-               storefront, so customers had no way to see/browse them
-               ("sub category doesn't show"). This dropdown fixes that. -->
           {% if cat.subcategories.all %}
           <div class="nav-cat-dropdown">
             {% for sub in cat.subcategories.all %}
@@ -144,13 +296,16 @@
     </div>
   </header>
 
-  <!-- CSS-Based Announcement Ticker -->
+  <!-- Announcement Ticker -->
   {% if site_setting.announcement_notice %}
-  <div class="bg-white border-b border-slate-200 py-2 overflow-hidden relative">
+  <div class="bg-white border-b border-slate-200 py-2 overflow-hidden relative marquee-wrap">
     <div class="max-w-7xl mx-auto px-4 flex items-center gap-3 text-xs font-semibold text-slate-700">
       <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0"></span>
       <div class="overflow-hidden w-full">
-        <span class="animate-marquee">📢 {{ site_setting.announcement_notice }}</span>
+        <div class="marquee-track">
+          <span class="pr-10 whitespace-nowrap">📢 {{ site_setting.announcement_notice }}</span>
+          <span class="pr-10 whitespace-nowrap" aria-hidden="true">📢 {{ site_setting.announcement_notice }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -161,24 +316,7 @@
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Footer -->
-  <footer class="bg-slate-950 text-slate-400 text-xs py-10 mt-16 border-t border-slate-800 text-center space-y-2">
-    <p class="font-black text-white text-lg tracking-wider uppercase">{{ site_setting.site_name }}</p>
-    <p>{{ site_setting.office_address }} | Helpline: {{ site_setting.contact_phone }}</p>
-    <p class="text-slate-600">&copy; 2026 {{ site_setting.site_name }}. All Rights Reserved.</p>
-  </footer>
-
-  <!-- ============================================================ -->
-  <!-- Global Overlays / Modals / Toasts                             -->
-  <!-- BUG FIX: these must be the LAST elements in <body>, strictly  -->
-  <!-- after <footer>, so later-painted siblings never stack above   -->
-  <!-- them regardless of z-index. Explicit layer order (low→high):  -->
-  <!--   header z-40  →  dropdowns z-50  →  cartBackdrop z-[90]  →   -->
-  <!--   cartDrawer z-[100]  →  checkoutModal z-[110]  →              -->
-  <!--   orderSuccessModal z-[150]  →  toastStack z-[200]             -->
-  <!-- ============================================================ -->
-
-  <!-- Cart Backdrop -->
+  <!-- Cart Drawer Backdrop -->
   <div id="cartBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-[90] transition-opacity" onclick="toggleCart()"></div>
 
   <!-- Cart Drawer (Shopping Bag) -->
@@ -188,40 +326,40 @@
         <i class="fa-solid fa-bag-shopping text-amber-900"></i>
         <h2 class="text-base font-bold text-slate-900">Your Shopping Bag</h2>
       </div>
-      <button onclick="toggleCart()" class="text-slate-400 hover:text-black text-xl p-1">&times;</button>
+      <button type="button" onclick="toggleCart()" class="text-slate-400 hover:text-black text-xl p-1" aria-label="Close bag">&times;</button>
     </div>
     <div id="cartItemsContainer" class="flex-1 p-5 overflow-y-auto space-y-3"></div>
     <div class="p-5 border-t border-slate-100 bg-[#FAF9F5] space-y-3">
       <div class="flex justify-between items-center text-sm font-bold">
         <span>Items Subtotal</span><span id="cartTotalPrice">৳ 0</span>
       </div>
-      <button onclick="openCheckoutModal()" class="w-full bg-brand-primary text-white py-3.5 rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
+      <button type="button" onclick="openCheckoutModal()" class="w-full bg-theme text-white py-3.5 rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition min-h-[46px]">
         Proceed to Checkout &rarr;
       </button>
     </div>
   </div>
 
   <!-- Cash on Delivery Checkout Modal -->
-  <div id="checkoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+  <div id="checkoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 class="font-bold text-slate-900 text-base">Cash on Delivery Order</h3>
-        <button onclick="closeCheckoutModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+        <button type="button" onclick="closeCheckoutModal()" class="text-slate-400 hover:text-slate-600 text-2xl" aria-label="Close">&times;</button>
       </div>
 
       <form id="checkoutForm" onsubmit="handlePlaceOrder(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
-          <input type="text" id="co_name" required placeholder="e.g. Mosabbir Ahmad" class="w-full border rounded-xl px-4 py-2 text-xs bg-slate-50 outline-none">
+          <input type="text" id="co_name" required placeholder="e.g. Mosabbir Ahmad" class="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Mobile Number *</label>
-          <input type="text" id="co_phone" required placeholder="017xxxxxxxx" class="w-full border rounded-xl px-4 py-2 text-xs bg-slate-50 outline-none">
+          <input type="text" id="co_phone" required placeholder="017xxxxxxxx" class="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">District *</label>
-            <select id="co_district" required onchange="handleDistrictChange(this.value)" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
+            <select id="co_district" required onchange="handleDistrictChange(this.value)" class="w-full border rounded-xl px-3 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
               <option value="Dhaka" selected>Dhaka</option>
               <option value="Chittagong">Chittagong</option>
               <option value="Sylhet">Sylhet</option>
@@ -235,17 +373,17 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Thana / Area</label>
-            <input type="text" id="co_thana" placeholder="e.g. Mirpur, Dhanmondi" class="w-full border rounded-xl px-3 py-2 text-xs bg-slate-50 outline-none">
+            <input type="text" id="co_thana" placeholder="e.g. Mirpur, Dhanmondi" class="w-full border rounded-xl px-3 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
           </div>
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Full Street Address *</label>
-          <textarea id="co_address" required rows="2" placeholder="House, Road, Area, Landmark" class="w-full border rounded-xl p-3 text-xs bg-slate-50 outline-none"></textarea>
+          <textarea id="co_address" required rows="2" placeholder="House, Road, Area, Landmark" class="w-full border rounded-xl p-3 text-base sm:text-xs bg-slate-50 outline-none"></textarea>
         </div>
 
         <div class="flex gap-2 pt-1">
-          <input type="text" id="promoInput" placeholder="Coupon Code (e.g. SAVE10)" class="flex-1 border rounded-xl px-3 py-2 text-xs uppercase font-mono bg-slate-50 outline-none">
-          <button type="button" onclick="applyPromoCode()" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black">Apply</button>
+          <input type="text" id="promoInput" placeholder="Coupon Code (e.g. SAVE10)" class="flex-1 border rounded-xl px-3 py-2.5 text-base sm:text-xs uppercase font-mono bg-slate-50 outline-none">
+          <button type="button" onclick="applyPromoCode()" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black shrink-0">Apply</button>
         </div>
         <div id="promoMsg" class="text-[11px] font-bold"></div>
 
@@ -258,35 +396,49 @@
           </div>
         </div>
 
-        <button type="submit" id="submitOrderBtn" class="w-full py-3.5 bg-brand-primary text-white rounded-2xl font-bold text-xs hover:opacity-95 transition shadow-lg">
+        <button type="submit" id="submitOrderBtn" class="w-full py-3.5 bg-theme text-white rounded-2xl font-bold text-xs hover:opacity-95 transition shadow-lg min-h-[46px]">
           Confirm Order (Cash on Delivery)
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Professional Order-Confirmed Modal (replaces window.alert() on checkout) -->
-  <div id="orderSuccessModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl w-full max-w-sm p-7 shadow-2xl text-center space-y-4">
-      <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
-        <i class="fa-solid fa-circle-check"></i>
+  <!-- Multi-Column Footer -->
+  <footer class="bg-slate-950 text-slate-400 text-xs pt-12 pb-8 mt-16 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="space-y-3">
+        <p class="font-black text-white text-lg tracking-wider uppercase">{{ site_setting.site_name }}</p>
+        <p class="leading-relaxed">{{ site_setting.meta_description|default:"Premium phone covers, key rings and accessories with Cash on Delivery nationwide." }}</p>
       </div>
-      <div>
-        <h3 class="text-lg font-black text-slate-900">Order Placed Successfully!</h3>
-        <p class="text-xs text-slate-500 mt-1">Thank you! We'll call you shortly to confirm delivery.</p>
+      <div class="space-y-3">
+        <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Quick Categories</h4>
+        <ul class="space-y-2">
+          {% for cat in global_categories %}
+          <li><a href="{% url 'shop_category' cat.slug %}" class="hover:text-white transition">{{ cat.name }}</a></li>
+          {% empty %}
+          <li class="text-slate-600">No categories yet.</li>
+          {% endfor %}
+        </ul>
       </div>
-      <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left space-y-1.5">
-        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Order ID</span><span id="osOrderId" class="font-mono font-black text-amber-900"></span></div>
-        <div class="flex justify-between text-xs"><span class="text-slate-500 font-semibold">Total Bill</span><span id="osOrderTotal" class="font-black text-slate-900"></span></div>
+      <div class="space-y-3">
+        <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Support & Delivery</h4>
+        <ul class="space-y-2">
+          <li>Cash on Delivery Nationwide</li>
+          <li>Inside Dhaka: ৳{{ site_setting.delivery_fee_dhaka }}</li>
+          <li>Outside Dhaka: ৳{{ site_setting.delivery_fee_outside }}</li>
+        </ul>
       </div>
-      <button onclick="closeOrderSuccessModal()" class="w-full py-3 bg-brand-primary text-white rounded-2xl font-bold text-xs hover:opacity-95 transition">
-        Continue Shopping
-      </button>
+      <div class="space-y-3">
+        <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Contact</h4>
+        <ul class="space-y-2">
+          <li><i class="fa-solid fa-location-dot mr-1.5"></i>{{ site_setting.office_address }}</li>
+          <li><i class="fa-solid fa-phone mr-1.5"></i>{{ site_setting.contact_phone }}</li>
+          <li><i class="fa-solid fa-envelope mr-1.5"></i>{{ site_setting.contact_email }}</li>
+        </ul>
+      </div>
     </div>
-  </div>
-
-  <!-- Professional Toast Notification Stack (replaces window.alert()) -->
-  <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
+    <p class="text-center text-slate-600 mt-10">&copy; 2026 {{ site_setting.site_name }}. All Rights Reserved.</p>
+  </footer>
 
   <script>
     function getCookie(name) {
@@ -308,8 +460,10 @@
     let cart = JSON.parse(localStorage.getItem('fantacy_cart') || '[]');
     let currentDiscount = 0;
     let appliedPromoCode = '';
+    let lastOrderId = '';
     const feeDhaka = parseFloat("{{ site_setting.delivery_fee_dhaka|default:70 }}");
     const feeOutside = parseFloat("{{ site_setting.delivery_fee_outside|default:130 }}");
+    const whatsappNumber = "{{ site_setting.whatsapp_number|default:'' }}";
     let deliveryFee = feeDhaka;
 
     function saveCart() {
@@ -318,113 +472,70 @@
       syncAddToBagButtons();
     }
 
-    // Keeps every [data-add-btn] button on the page (home grids, category
-    // grids, product detail, related products) truthful about whether that
-    // product is currently sitting in the cart. Runs after every cart
-    // mutation (via saveCart) and once on page load, so removing an item
-    // from the drawer immediately reverts its button back to "Add to Bag".
-    function syncAddToBagButtons() {
-      const idsInCart = new Set(cart.map(i => String(i.id)));
-      document.querySelectorAll('[data-add-btn]').forEach(btn => {
-        const id = String(btn.dataset.addBtn);
-        if (btn.dataset.originalHtml === undefined) {
-          btn.dataset.originalHtml = btn.innerHTML;
-        }
-        if (idsInCart.has(id)) {
-          btn.innerHTML = '✓ In Your Bag';
-          btn.classList.add('add-btn-in-cart');
-        } else {
-          btn.innerHTML = btn.dataset.originalHtml;
-          btn.classList.remove('add-btn-in-cart');
-        }
-      });
+    // Mobile Nav Drawer
+    function openMobileNav() {
+      document.getElementById('mobileNavDrawer').classList.remove('nav-drawer-hidden');
+      document.getElementById('mobileNavBackdrop').classList.remove('hidden');
     }
-
-    // ============================================================
-    // BODY SCROLL LOCK
-    // BUG FIX: the background page used to keep scrolling underneath an open
-    // drawer/modal. Lock scroll whenever ANY overlay is open, and only
-    // restore it once every overlay is confirmed closed (so closing one
-    // modal doesn't re-enable scroll while another is still open, e.g.
-    // checkoutModal closing while orderSuccessModal is opening).
-    // ============================================================
-    function isAnyOverlayOpen() {
-      const drawer = document.getElementById('cartDrawer');
-      const checkout = document.getElementById('checkoutModal');
-      const success = document.getElementById('orderSuccessModal');
-      return (drawer && !drawer.classList.contains('cart-hidden')) ||
-             (checkout && !checkout.classList.contains('hidden')) ||
-             (success && !success.classList.contains('hidden'));
+    function closeMobileNav() {
+      document.getElementById('mobileNavDrawer').classList.add('nav-drawer-hidden');
+      document.getElementById('mobileNavBackdrop').classList.add('hidden');
     }
-    function lockBodyScroll() {
-      document.body.classList.add('overflow-hidden');
-    }
-    function syncBodyScrollLock() {
-      if (isAnyOverlayOpen()) {
-        lockBodyScroll();
-      } else {
-        document.body.classList.remove('overflow-hidden');
-      }
+    function toggleMobileAccordion(id) {
+      const panel = document.getElementById('mobileAcc' + id);
+      const icon = document.getElementById('mobileAccIcon' + id);
+      if (!panel) return;
+      const willOpen = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      if (icon) icon.style.transform = willOpen ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
     function toggleCart() {
       document.getElementById('cartDrawer').classList.toggle('cart-hidden');
       document.getElementById('cartBackdrop').classList.toggle('hidden');
-      syncBodyScrollLock();
     }
-    // BUG FIX: toggleCart() flips open/closed each time it's called. addToBag()
-    // and the post-order cleanup used to call toggleCart() blindly, so if the
-    // drawer was already open (e.g. user adds a second product while the cart
-    // is open), the next "Add to Bag" click would CLOSE it instead of keeping
-    // it open — making the drawer appear to flicker open/closed repeatedly.
-    // openCart()/closeCart() set an explicit state instead of toggling.
+    // openCart()/closeCart() set an explicit state instead of toggling, so
+    // code that needs the drawer in a specific state never accidentally
+    // flips it the wrong way.
     function openCart() {
       document.getElementById('cartDrawer').classList.remove('cart-hidden');
       document.getElementById('cartBackdrop').classList.remove('hidden');
-      lockBodyScroll();
     }
     function closeCart() {
       document.getElementById('cartDrawer').classList.add('cart-hidden');
       document.getElementById('cartBackdrop').classList.add('hidden');
-      syncBodyScrollLock();
     }
 
-    // SILENT AJAX ADD TO BAG (Updates badge without reloading page!)
-    //
-    // BUG FIX (behavior change): "Add to Bag" used to (a) force the cart
-    // drawer open every single time, even for a product the customer wasn't
-    // currently looking at adding, and (b) silently increment the quantity
-    // on every repeat click, which let a mis-click balloon the order total
-    // with no feedback. Neither happens anymore:
-    //   - The drawer is NEVER opened from here. It opens only when the user
-    //     explicitly clicks the header Bag icon or a toast's "View Bag" link.
-    //   - A product already in the cart is left untouched on a repeat click;
-    //     the customer gets a friendly "Already in your bag" toast instead.
-    //   - maxStock (optional) clamps the add, and qty (optional, defaults to
-    //     1) lets a caller like the product-detail quantity stepper add more
-    //     than one unit on the very first add.
+    // ============================================================
+    // ADD TO BAG -- no longer auto-opens the drawer, no longer adds
+    // duplicates of a product already in the bag.
+    // ============================================================
     function addToBag(id, name, effectivePrice, regularPrice, img, maxStock, qty) {
       id = String(id);
+      const existing = cart.find(i => String(i.id) === id);
+
+      if (existing) {
+        // BUG FIX: this used to silently increment existing.qty on every
+        // click, so clicking "Add to Bag" repeatedly kept growing the
+        // quantity with zero feedback. Now it's a no-op plus a clear toast.
+        showToast(`${name} is already in your bag`, 'info', 4200, { label: 'View Bag', onClick: openCart });
+        return;
+      }
+
+      const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock) : null;
+      if (stock !== null && stock <= 0) {
+        showToast('This item is currently out of stock.', 'error');
+        return;
+      }
+
+      const addQty = (qty && parseInt(qty) > 0) ? parseInt(qty) : 1;
       const p = parseFloat(effectivePrice);
       const regP = regularPrice ? parseFloat(regularPrice) : p;
-      const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock, 10) : null;
-      const addQty = qty ? Math.max(1, parseInt(qty, 10) || 1) : 1;
-
-      const existing = cart.find(i => String(i.id) === id);
-      if (existing) {
-        showToast('Already in your bag', 'info', { actionLabel: 'View Bag', onAction: openCart });
-        return;
-      }
-
-      if (stock !== null && stock <= 0) {
-        showToast('This item is out of stock', 'warning');
-        return;
-      }
 
       cart.push({ id, name, price: p, regularPrice: regP, img: img || '', qty: addQty, maxStock: stock });
       saveCart();
-      pulseCartBadge();
-      showToast(`${name} added to your bag`, 'success', { actionLabel: 'View Bag', onAction: openCart });
+      bounceCartBadge();
+      showToast(`${name} added to your bag`, 'success', 4200, { label: 'View Bag', onClick: openCart });
 
       fetch('/api/log-event/', {
         method: 'POST',
@@ -433,41 +544,47 @@
       });
     }
 
-    // Brief scale "pop" on the header bag badge to draw the eye without a
-    // blocking modal/alert.
-    function pulseCartBadge() {
-      const badge = document.getElementById('cartCountBadge');
-      if (!badge) return;
-      badge.classList.remove('cart-badge-pop');
-      void badge.offsetWidth; // force reflow so the animation can replay
-      badge.classList.add('cart-badge-pop');
+    function bounceCartBadge() {
+      document.querySelectorAll('.cart-badge').forEach(b => {
+        b.classList.remove('badge-bounce');
+        void b.offsetWidth; // restart animation
+        b.classList.add('badge-bounce');
+      });
     }
 
-    // Quantity edits inside the drawer remain deliberate (+/- steppers,
-    // clamped to the product's known stock when we have it).
+    // Any product currently in the cart renders its Add-to-Bag button as
+    // "In Your Bag"; removing it from the drawer reverts the button.
+    function syncAddToBagButtons() {
+      document.querySelectorAll('[data-add-btn]').forEach(btn => {
+        const id = String(btn.dataset.addBtn);
+        const inCart = cart.some(i => String(i.id) === id);
+        if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+        if (inCart) {
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> <span>In Your Bag</span>';
+          btn.classList.add('btn-in-bag');
+        } else {
+          btn.innerHTML = btn.dataset.originalHtml;
+          btn.classList.remove('btn-in-bag');
+        }
+      });
+    }
+
     function updateQty(idx, delta) {
-      const item = cart[idx];
-      if (!item) return;
-      const newQty = item.qty + delta;
-      if (newQty <= 0) {
-        cart.splice(idx, 1);
+      if (cart[idx]) {
+        const max = cart[idx].maxStock;
+        cart[idx].qty += delta;
+        if (max && cart[idx].qty > max) cart[idx].qty = max;
+        if (cart[idx].qty <= 0) cart.splice(idx, 1);
         saveCart();
-        return;
       }
-      if (item.maxStock && newQty > item.maxStock) {
-        showToast(`Only ${item.maxStock} in stock`, 'warning');
-        return;
-      }
-      item.qty = newQty;
-      saveCart();
     }
     function removeCartItem(idx) {
       cart.splice(idx, 1);
       saveCart();
     }
     function renderCartUI() {
-      const badge = document.getElementById('cartCountBadge');
-      if (badge) badge.innerText = cart.reduce((a, b) => a + b.qty, 0);
+      const count = cart.reduce((a, b) => a + b.qty, 0);
+      document.querySelectorAll('.cart-badge').forEach(b => { b.innerText = count; });
       const container = document.getElementById('cartItemsContainer');
       const totalSpan = document.getElementById('cartTotalPrice');
       if (!container || !totalSpan) return;
@@ -493,13 +610,13 @@
                   ${item.regularPrice && item.regularPrice > item.price ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">৳${item.regularPrice}</span>` : ''}
                 </div>
                 <div class="flex items-center gap-2 mt-1">
-                  <button onclick="updateQty(${idx}, -1)" class="w-5 h-5 rounded bg-slate-100 text-xs font-bold">-</button>
+                  <button type="button" onclick="updateQty(${idx}, -1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold">-</button>
                   <span class="text-xs font-bold">${item.qty}</span>
-                  <button onclick="updateQty(${idx}, 1)" ${item.maxStock && item.qty >= item.maxStock ? 'disabled' : ''} class="w-5 h-5 rounded text-xs font-bold ${item.maxStock && item.qty >= item.maxStock ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-slate-100'}">+</button>
+                  <button type="button" onclick="updateQty(${idx}, 1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold">+</button>
                 </div>
               </div>
             </div>
-            <button onclick="removeCartItem(${idx})" class="text-slate-400 hover:text-rose-500 p-2"><i class="fa-regular fa-trash-can"></i></button>
+            <button type="button" onclick="removeCartItem(${idx})" class="text-slate-400 hover:text-rose-500 p-2"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         `;
       });
@@ -527,10 +644,7 @@
       updateBillSummary();
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.remove('hidden');
-      lockBodyScroll();
 
-      // BUG FIX: analytics funnel counts 'checkout_start' events but nothing
-      // ever sent one, so "Checkout Initiated" always showed 0 on the dashboard.
       fetch('/api/log-event/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
@@ -540,7 +654,6 @@
     function closeCheckoutModal() {
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.add('hidden');
-      syncBodyScrollLock();
     }
     async function applyPromoCode() {
       const input = document.getElementById('promoInput');
@@ -594,16 +707,20 @@
         });
         const result = await res.json();
         if (result.status === 'success') {
-          // BUG FIX: a blocking window.alert() used to fire here, freezing the
-          // tab with the browser's native "says" dialog - unprofessional and
-          // jarring. Replaced with an in-page confirmation modal + toast.
-          openOrderSuccessModal(result.order_id, result.total);
+          openOrderSuccessModal(result);
           cart = [];
           saveCart();
+          currentDiscount = 0;
+          appliedPromoCode = '';
+          const promoInput = document.getElementById('promoInput');
+          if (promoInput) promoInput.value = '';
+          const promoMsg = document.getElementById('promoMsg');
+          if (promoMsg) { promoMsg.innerText = ''; promoMsg.className = ''; }
+          const form = document.getElementById('checkoutForm');
+          if (form) form.reset();
           closeCheckoutModal();
           closeCart();
         } else {
-          // If deleted product in cart caused failure, auto-clear orphaned items
           if (result.invalid_items) {
             cart = [];
             saveCart();
@@ -619,11 +736,12 @@
       }
     }
 
-    // Live Search with 300ms Debounce
+    // Live Search with 300ms Debounce (shared by desktop + mobile search bars)
     let searchDebounceTimer = null;
-    function handleLiveSearch(val) {
+    function handleLiveSearch(val, dropdownId) {
       clearTimeout(searchDebounceTimer);
-      const dropdown = document.getElementById('searchDropdown');
+      const dropdown = document.getElementById(dropdownId || 'searchDropdown');
+      if (!dropdown) return;
       if (!val || val.trim().length < 2) {
         dropdown.classList.add('hidden');
         dropdown.innerHTML = '';
@@ -669,11 +787,13 @@
     }
 
     document.addEventListener('click', (e) => {
-      const searchBox = document.getElementById('storeSearch');
-      const dropdown = document.getElementById('searchDropdown');
-      if (dropdown && !searchBox.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.classList.add('hidden');
-      }
+      [['storeSearch', 'searchDropdown'], ['storeSearchMobile', 'searchDropdownMobile']].forEach(([inputId, dropId]) => {
+        const searchBox = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropId);
+        if (dropdown && searchBox && !searchBox.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.classList.add('hidden');
+        }
+      });
     });
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -690,59 +810,98 @@
       warning: '<i class="fa-solid fa-triangle-exclamation text-amber-500"></i>',
       info:    '<i class="fa-solid fa-circle-info text-blue-500"></i>',
     };
-    // opts: { duration, actionLabel, onAction }. A bare number is still
-    // accepted as a duration override for backward compatibility.
-    function showToast(message, type = 'info', opts = {}) {
-      if (typeof opts === 'number') opts = { duration: opts };
-      const { duration = 4200, actionLabel = null, onAction = null } = opts;
-
+    function showToast(message, type = 'info', duration = 4200, action = null) {
       const stack = document.getElementById('toastStack');
       if (!stack) return;
       const el = document.createElement('div');
       el.className = 'toast-item pointer-events-auto w-full sm:w-auto sm:min-w-[300px] max-w-sm flex items-start gap-3 bg-white border border-slate-200 shadow-xl rounded-2xl px-4 py-3.5';
       el.innerHTML = `
         <div class="text-base mt-0.5 shrink-0">${TOAST_ICONS[type] || TOAST_ICONS.info}</div>
-        <div class="flex-1 text-xs font-semibold text-slate-800 leading-relaxed">
-          <div>${message}</div>
-          ${actionLabel ? `<button type="button" class="toast-action-btn mt-1.5 text-[11px] font-black text-amber-900 underline underline-offset-2 hover:text-amber-700">${actionLabel}</button>` : ''}
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-semibold text-slate-800 leading-relaxed">${message}</div>
+          ${action ? `<button type="button" class="toast-action-btn mt-1.5 text-[11px] font-bold text-amber-900 underline underline-offset-2">${action.label}</button>` : ''}
         </div>
-        <button class="toast-dismiss-btn text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
+        <button type="button" class="toast-dismiss-btn text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
       `;
       const dismiss = () => {
         el.classList.add('toast-leaving');
         setTimeout(() => el.remove(), 200);
       };
       el.querySelector('.toast-dismiss-btn').onclick = dismiss;
-      if (actionLabel) {
+      if (action) {
         const actionBtn = el.querySelector('.toast-action-btn');
-        // BUG FIX: this is the ONLY place besides the header bag icon that's
-        // allowed to open the cart drawer -- a deliberate click on "View Bag"
-        // inside the toast, never an automatic side effect of adding an item.
-        if (actionBtn) {
-          actionBtn.onclick = () => {
-            if (typeof onAction === 'function') onAction();
-            dismiss();
-          };
-        }
+        if (actionBtn) actionBtn.onclick = () => { if (action.onClick) action.onClick(); dismiss(); };
       }
       stack.appendChild(el);
       setTimeout(dismiss, duration);
     }
 
-    function openOrderSuccessModal(orderId, total) {
-      document.getElementById('osOrderId').innerText = orderId;
-      document.getElementById('osOrderTotal').innerText = `৳ ${total}`;
+    function openOrderSuccessModal(data) {
+      lastOrderId = data.order_id;
+      document.getElementById('osGreeting').innerText = `Order Confirmed! Thank you, ${data.customer_name}`;
+      document.getElementById('osOrderId').innerText = data.order_id;
+      document.getElementById('osSubtotal').innerText = `৳ ${data.subtotal}`;
+
+      const discRow = document.getElementById('osDiscountRow');
+      if (parseFloat(data.discount_amount) > 0) {
+        discRow.classList.remove('hidden');
+        discRow.classList.add('flex');
+        document.getElementById('osDiscount').innerText = `- ৳ ${data.discount_amount}`;
+      } else {
+        discRow.classList.add('hidden');
+        discRow.classList.remove('flex');
+      }
+
+      document.getElementById('osDeliveryFee').innerText = `৳ ${data.delivery_fee}`;
+      document.getElementById('osOrderTotal').innerText = `৳ ${data.total}`;
+
+      const addrParts = [data.shipping_address, data.thana, data.district].filter(Boolean);
+      document.getElementById('osAddress').innerText = addrParts.join(', ');
+      document.getElementById('osEta').innerText = `Estimated Delivery: ${data.estimated_delivery}`;
+
+      const list = document.getElementById('osItemsList');
+      list.innerHTML = (data.items || []).map(it => `
+        <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="w-10 h-10 rounded-lg bg-white border overflow-hidden shrink-0 flex items-center justify-center">
+            ${it.image ? `<img src="${it.image}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-slate-900 line-clamp-1">${it.name}</div>
+            <div class="text-[10px] text-slate-400 font-mono">${it.code || ''}</div>
+            <div class="text-[11px] font-semibold text-slate-600">${it.qty} &times; ৳${it.price}</div>
+          </div>
+          <div class="text-xs font-black text-slate-900 shrink-0">৳${it.line_total}</div>
+        </div>
+      `).join('');
+
+      const waDigits = (whatsappNumber || '').replace(/[^0-9]/g, '');
+      const waLink = document.getElementById('osWhatsappLink');
+      if (waDigits) {
+        waLink.href = `https://wa.me/${waDigits}?text=${encodeURIComponent('Hi, I need help with my order ' + data.order_id)}`;
+        waLink.classList.remove('hidden');
+      } else {
+        waLink.classList.add('hidden');
+      }
+
       document.getElementById('orderSuccessModal').classList.remove('hidden');
-      lockBodyScroll();
     }
     function closeOrderSuccessModal() {
       document.getElementById('orderSuccessModal').classList.add('hidden');
-      syncBodyScrollLock();
+    }
+    function copyOrderId() {
+      if (!lastOrderId) return;
+      const btn = document.getElementById('copyOrderIdBtn');
+      const original = btn.innerHTML;
+      const reset = () => setTimeout(() => { btn.innerHTML = original; }, 1800);
+      const showCopied = () => { btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!'; reset(); };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lastOrderId).then(showCopied).catch(showCopied);
+      } else {
+        showCopied();
+      }
     }
   </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
-
-
-

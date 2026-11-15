@@ -9,3 +9,4 @@ node_modules/
 .DS_Store
 .vscode/settings.json
 media/
+CHANGES_README.md

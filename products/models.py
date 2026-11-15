@@ -136,6 +136,18 @@ class Category(models.Model):
     def __str__(self):
         return f"{self.parent.name} > {self.name}" if self.parent else self.name
 
+    @property
+    def total_active_products(self):
+        # BUG FIX: the homepage "Shop by Category" cards showed "0 items" for
+        # any parent category whose products live only inside its
+        # subcategories (cat.products.count only ever counted DIRECT
+        # products on the parent itself). This counts direct active
+        # products PLUS active products inside any active subcategory.
+        direct = self.products.filter(is_active=True).count()
+        sub_ids = list(self.subcategories.filter(is_active=True).values_list('id', flat=True))
+        sub_count = Product.objects.filter(category_id__in=sub_ids, is_active=True).count() if sub_ids else 0
+        return direct + sub_count
+
 
 class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')

@@ -1,0 +1,68 @@
+{% load shop_extras %}
+<div class="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col justify-between group h-full">
+  <div>
+    <div class="flex justify-between items-start mb-2 gap-1">
+      {% if product.discount_percent > 0 %}
+      <span class="bg-rose-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">{{ product.discount_percent }}% OFF</span>
+      {% else %}<span></span>{% endif %}
+      {% if product.badge_tag %}
+      <span class="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 whitespace-nowrap">🔥 {{ product.badge_tag }}</span>
+      {% endif %}
+    </div>
+
+    <a href="{% url 'product_detail' product.pk %}" class="aspect-square rounded-xl sm:rounded-2xl bg-[#F6F7F9] overflow-hidden mb-3 flex items-center justify-center p-2 block border border-slate-100 group-hover:shadow-inner">
+      {% if product.image %}
+      <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+      {% else %}
+      <i class="fa-solid fa-box text-slate-300 text-3xl"></i>
+      {% endif %}
+    </a>
+
+    <div class="text-[10px] text-slate-400 font-mono font-bold">SKU: {{ product.product_code|default:"FT-101" }}</div>
+    <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs sm:text-[13px] text-slate-900 line-clamp-2 hover:text-amber-900 block mt-0.5 leading-snug min-h-[2.2em]">
+      {{ product.name }}
+    </a>
+
+    {% if product.avg_rating %}
+    <div class="flex items-center gap-1 text-[11px] text-amber-500 font-bold mt-1">
+      <i class="fa-solid fa-star"></i> {{ product.avg_rating }} <span class="text-slate-400 font-normal">({{ product.reviews_count }})</span>
+    </div>
+    {% endif %}
+
+    {% if product.stock > 5 %}
+    <div class="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> In Stock
+    </div>
+    {% elif product.stock > 0 %}
+    <div class="text-[11px] font-bold text-amber-600 mt-1 flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span> Only {{ product.stock }} left!
+    </div>
+    {% else %}
+    <div class="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> Out of Stock
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mt-3 sm:mt-4">
+    <div class="flex items-center gap-2 mb-2.5 sm:mb-3 flex-wrap">
+      <span class="text-sm sm:text-base font-black text-slate-900">৳ {{ product.effective_price|clean_price }}</span>
+      {% if product.discount_price and product.discount_price < product.price %}
+      <span class="text-[11px] sm:text-xs text-slate-400 line-through">৳ {{ product.price|clean_price }}</span>
+      {% endif %}
+    </div>
+    {% if product.stock > 0 %}
+    <button
+      type="button"
+      data-add-btn="{{ product.id }}"
+      onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', {{ product.stock }}, 1)"
+      class="w-full min-h-[42px] bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm add-to-bag-btn">
+      <i class="fa-solid fa-basket-shopping"></i> <span>Add to Bag</span>
+    </button>
+    {% else %}
+    <button type="button" disabled data-out-of-stock="1" class="w-full min-h-[42px] bg-slate-200 text-slate-400 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed">
+      Out of Stock
+    </button>
+    {% endif %}
+  </div>
+</div>

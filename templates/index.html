@@ -1,32 +1,75 @@
 {% extends 'base.html' %}
+{% load shop_extras %}
 {% block title %}{{ site_setting.site_name }} - Premium Mobile Covers & Accessories{% endblock %}
 
 {% block content %}
+<!-- Hero Section -->
+<section class="bg-white border-b border-slate-200/80">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    <div class="max-w-2xl">
+      <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 mb-4">
+        {{ site_setting.site_name }}
+      </span>
+      <h1 class="text-2xl sm:text-4xl font-black text-slate-900 leading-tight tracking-tight">
+        Premium Phone Covers &amp; Key Rings, Delivered to Your Door
+      </h1>
+      <p class="text-sm text-slate-500 mt-3 leading-relaxed">
+        Carefully selected accessories at honest prices -- pay only when it arrives.
+      </p>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <a href="#all-products-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-theme text-white rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
+          Shop Collection
+        </a>
+        <a href="#category-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-white border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs hover:bg-slate-50 transition">
+          Browse Categories
+        </a>
+      </div>
+      <div class="flex flex-wrap gap-x-6 gap-y-2 mt-7 text-[11px] font-semibold text-slate-600">
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash on Delivery</span>
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck-fast text-amber-700"></i> Fast Nationwide Delivery</span>
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-blue-600"></i> Quality Checked</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Categories Section -->
-<!-- REDESIGN: a 6-column CSS grid with only 1-2 categories left a huge block
-     of empty, unexplained whitespace to the right (looked broken, like
-     missing cards). Switched to flex-wrap so cards only take the width the
-     merchant actually has categories for, left-aligned, with a section
-     header for context -- the same pattern used whether there's 1 category
-     or 20. -->
-<section class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+<section id="category-section" class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
   <div class="flex items-baseline justify-between mb-5">
     <h2 class="text-lg font-black text-slate-900">Shop by Category</h2>
-    <a href="/#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">View all products &rarr;</a>
+    <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">View all products &rarr;</a>
   </div>
-  <div class="flex flex-wrap gap-5">
+  <div class="flex flex-wrap gap-4 sm:gap-5">
     {% for cat in categories %}
-    <a href="{% url 'shop_category' cat.slug %}" class="group bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col items-center text-center w-32 sm:w-36">
-      <div class="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-3 group-hover:scale-105 transition-all duration-300">
-        {% if cat.image %}
-          <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
-        {% else %}
-          <i class="fa-solid fa-shapes text-3xl text-slate-300"></i>
+    <div class="group bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col items-center text-center w-28 sm:w-36">
+      <a href="{% url 'shop_category' cat.slug %}" class="flex flex-col items-center w-full">
+        <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-3 group-hover:scale-105 transition-all duration-300">
+          {% if cat.image %}
+            <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
+          {% else %}
+            <i class="fa-solid fa-shapes text-3xl text-slate-300"></i>
+          {% endif %}
+        </div>
+        <span class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</span>
+        <!-- BUG FIX: used to read {{ cat.products.count }}, which only
+             counts products directly on the parent category and always
+             showed "0 items" whenever products live in its subcategories
+             instead. total_active_products (see Category model) adds
+             direct + subcategory products together. -->
+        <span class="text-[11px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
+      </a>
+      {% if cat.subcategories.all %}
+      <div class="flex flex-wrap justify-center gap-1 mt-2">
+        {% for sub in cat.subcategories.all %}
+        {% if sub.is_active %}
+        <a href="{% url 'shop_category' sub.slug %}" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-200 transition">
+          {{ sub.name }}
+        </a>
         {% endif %}
+        {% endfor %}
       </div>
-      <span class="text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</span>
-      <span class="text-[11px] text-slate-400 mt-0.5">{{ cat.products.count }} items</span>
-    </a>
+      {% endif %}
+    </div>
     {% empty %}
     <p class="text-xs text-slate-400">No categories yet.</p>
     {% endfor %}
@@ -34,17 +77,10 @@
 </section>
 
 <!-- Dynamic Showcase Sections -->
-<!-- REDESIGN: each section used to be a full-bleed, edge-to-edge colored
-     band stacked directly against the next one (brown band -> brown band ->
-     white -> ...), which looked like unprofessional, abrupt "slabs" with no
-     breathing room between sections. Each theme is now a rounded, padded
-     card contained within the page's max width, with consistent vertical
-     spacing between sections, so two different-themed sections are always
-     clearly separated instead of touching edge-to-edge. -->
 {% for section in showcase_sections %}
 <section class="py-5">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="rounded-[2rem] p-6 sm:p-10 shadow-sm
+    <div class="rounded-[1.75rem] sm:rounded-[2rem] p-4 sm:p-10 shadow-sm
       {% if section.background_style == 'brown' %}bg-[#5C3214] text-white
       {% elif section.background_style == 'dark' %}bg-slate-900 text-white
       {% elif section.background_style == 'navy' %}bg-[#0B1F3A] text-white
@@ -54,8 +90,8 @@
       {% elif section.background_style == 'rose' %}bg-[#FDEEF1] text-slate-900 border border-rose-100
       {% elif section.background_style == 'slate' %}bg-slate-100 text-slate-900 border border-slate-200
       {% else %}bg-white text-slate-900 border border-slate-200/80{% endif %}">
-    <div class="flex justify-between items-center mb-8">
-      <h2 class="text-2xl sm:text-3xl font-black tracking-tight">{{ section.title }}</h2>
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8">
+      <h2 class="text-xl sm:text-3xl font-black tracking-tight">{{ section.title }}</h2>
       {% if section.has_countdown and section.end_time %}
       <div class="flex items-center gap-1.5 text-xs font-mono font-bold countdown-timer" data-endtime="{{ section.end_time|date:'c' }}">
         <span class="bg-black/30 backdrop-blur px-2.5 py-1.5 rounded-lg cd-h">00</span> :
@@ -65,68 +101,10 @@
       {% endif %}
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
       {% for product in section.products.all %}
-      <div class="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col justify-between group text-slate-900">
-        <div>
-          <div class="flex justify-between items-start mb-2">
-            {% if product.discount_percent > 0 %}
-            <span class="bg-rose-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">
-              {{ product.discount_percent }}% OFF
-            </span>
-            {% else %}<span></span>{% endif %}
-            {% if product.badge_tag %}
-            <span class="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">🔥 {{ product.badge_tag }}</span>
-            {% endif %}
-          </div>
-
-          <a href="{% url 'product_detail' product.pk %}" class="aspect-square rounded-2xl bg-slate-50 overflow-hidden mb-3 flex items-center justify-center p-2 block border border-slate-100">
-            {% if product.image %}
-            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-full object-contain group-hover:scale-105 transition-all">
-            {% else %}
-            <i class="fa-solid fa-box text-slate-300 text-3xl"></i>
-            {% endif %}
-          </a>
-
-          <div class="text-[10px] text-slate-400 font-mono font-bold">SKU: {{ product.product_code|default:"FT-101" }}</div>
-          <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs text-slate-900 line-clamp-1 hover:text-amber-900 block mt-0.5">
-            {{ product.name }}
-          </a>
-
-          {% if product.stock > 5 %}
-          <div class="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> In Stock
-          </div>
-          {% elif product.stock > 0 %}
-          <div class="text-[11px] font-bold text-amber-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span> Only {{ product.stock }} left!
-          </div>
-          {% else %}
-          <div class="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> Out of Stock
-          </div>
-          {% endif %}
-        </div>
-
-        <div class="mt-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-base font-black text-slate-900">৳ {{ product.effective_price }}</span>
-            {% if product.discount_price and product.discount_price < product.price %}
-            <span class="text-xs text-slate-400 line-through">৳ {{ product.price }}</span>
-            {% endif %}
-          </div>
-          <div class="flex items-center gap-2">
-            {% if product.stock > 0 %}
-            <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}')" class="flex-1 bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
-              <i class="fa-solid fa-basket-shopping"></i> Add to Bag
-            </button>
-            {% else %}
-            <button disabled class="flex-1 bg-slate-200 text-slate-400 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed">
-              Out of Stock
-            </button>
-            {% endif %}
-          </div>
-        </div>
+      <div class="text-slate-900">
+        {% include 'shop/partials/product_card.html' with product=product %}
       </div>
       {% endfor %}
     </div>
@@ -135,13 +113,13 @@
 </section>
 {% endfor %}
 
-<!-- Complete Products Catalog (Distinct Product Cards) -->
-<section id="all-products-section" class="py-14 bg-white border-t border-slate-200">
+<!-- Complete Products Catalog -->
+<section id="all-products-section" class="py-12 sm:py-14 bg-white border-t border-slate-200">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="flex justify-between items-center mb-10 pb-4 border-b border-slate-100">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-8 sm:mb-10 pb-4 border-b border-slate-100">
       <div>
         <span class="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">Full Catalog</span>
-        <h2 class="text-3xl font-black text-slate-900 tracking-tight mt-2">
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
           {% if search_query %}Search Results for "{{ search_query }}"{% else %}All Products{% endif %}
         </h2>
       </div>
@@ -150,54 +128,9 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
       {% for product in products %}
-      <div class="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col justify-between group">
-        <div>
-          <div class="flex justify-between items-start mb-2">
-            {% if product.discount_percent > 0 %}
-            <span class="bg-rose-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">{{ product.discount_percent }}% OFF</span>
-            {% else %}<span></span>{% endif %}
-          </div>
-          <a href="{% url 'product_detail' product.pk %}" class="aspect-square rounded-2xl bg-slate-50 overflow-hidden mb-3 flex items-center justify-center p-2 block border border-slate-100">
-            {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-full object-contain group-hover:scale-105 transition-all">{% endif %}
-          </a>
-          <div class="text-[10px] text-slate-400 font-mono font-bold">SKU: {{ product.product_code|default:"FT-101" }}</div>
-          <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs text-slate-900 line-clamp-1 block mt-0.5">{{ product.name }}</a>
-          
-          {% if product.stock > 5 %}
-          <div class="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> In Stock
-          </div>
-          {% elif product.stock > 0 %}
-          <div class="text-[11px] font-bold text-amber-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span> Only {{ product.stock }} left!
-          </div>
-          {% else %}
-          <div class="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> Out of Stock
-          </div>
-          {% endif %}
-        </div>
-
-        <div class="mt-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-base font-black text-slate-900">৳ {{ product.effective_price }}</span>
-            {% if product.discount_price and product.discount_price < product.price %}
-            <span class="text-xs text-slate-400 line-through">৳ {{ product.price }}</span>
-            {% endif %}
-          </div>
-          {% if product.stock > 0 %}
-          <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}')" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-basket-shopping"></i> Add to Bag
-          </button>
-          {% else %}
-          <button disabled class="w-full bg-slate-200 text-slate-400 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed">
-            Out of Stock
-          </button>
-          {% endif %}
-        </div>
-      </div>
+      {% include 'shop/partials/product_card.html' with product=product %}
       {% empty %}
       <div class="col-span-full text-center py-20 text-slate-400">
         No products found matching your search.
@@ -242,6 +175,3 @@
   }, 1000);
 </script>
 {% endblock %}
-
-
-

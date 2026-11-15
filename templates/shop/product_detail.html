@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
+{% load shop_extras %}
 {% block title %}{{ product.meta_title|default:product.name }} - {{ site_setting.site_name }}{% endblock %}
 {% block meta_description %}{{ product.meta_description|default:product.description|truncatechars:160 }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
   <!-- Breadcrumb -->
-  <div class="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-6">
+  <div class="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-6 flex-wrap">
     <a href="/" class="hover:text-amber-900 transition">Home</a>
     <span>/</span>
     {% if product.category %}
@@ -16,9 +17,9 @@
   </div>
 
   <!-- Product Core Container -->
-  <div class="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-10">
-    
-    <!-- Left: 6-Images Gallery (Main + Clickable Thumbnail Strip) -->
+  <div class="bg-white rounded-3xl p-4 sm:p-10 border border-slate-200/90 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
+
+    <!-- Left: Images Gallery -->
     <div class="space-y-4">
       <div class="aspect-square bg-slate-50 rounded-3xl overflow-hidden border border-slate-100 flex items-center justify-center p-4 relative shadow-inner">
         <img id="mainDisplayImage" src="{% if product.image %}{{ product.image.url }}{% endif %}" alt="{{ product.name }}" class="max-h-full max-w-full object-contain transition-all duration-300">
@@ -29,7 +30,6 @@
         {% endif %}
       </div>
 
-      <!-- Thumbnail Strip (Supports up to 6 images) -->
       <div class="flex gap-3 overflow-x-auto pb-2">
         {% if product.image %}
         <div onclick="swapMainImage('{{ product.image.url }}', this)" class="gallery-thumb w-16 h-16 rounded-2xl border-2 border-amber-900 cursor-pointer overflow-hidden p-1 shrink-0 bg-slate-50">
@@ -47,7 +47,7 @@
     <!-- Right: Product Details, Stock & Actions -->
     <div class="space-y-5 flex flex-col justify-between">
       <div class="space-y-3">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="inline-block bg-slate-100 text-slate-700 text-xs font-mono font-bold px-3 py-1 rounded-full border border-slate-200">
             Code: {{ product.product_code|default:"FT-101" }}
           </span>
@@ -58,25 +58,21 @@
           {% endif %}
         </div>
 
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">{{ product.name }}</h1>
+        <h1 class="text-xl sm:text-3xl font-black text-slate-900 leading-tight">{{ product.name }}</h1>
 
-        <!-- Rating & Stock Line -->
-        <div class="flex items-center gap-3 text-sm">
+        <div class="flex items-center gap-3 text-sm flex-wrap">
           {% if product.avg_rating %}
           <div class="flex items-center text-amber-500 font-bold text-xs">
             <i class="fa-solid fa-star mr-1"></i> {{ product.avg_rating }}
             <span class="text-slate-400 font-normal ml-1">({{ product.reviews_count }} reviews)</span>
           </div>
           {% else %}
-          <!-- BUG FIX: avg_rating is None with zero reviews, and the template
-               used to print that Python None literally as the text "None"
-               next to a star icon -- confusing and unprofessional. -->
           <div class="flex items-center text-slate-400 font-semibold text-xs">
             <i class="fa-regular fa-star mr-1"></i> No ratings yet
           </div>
           {% endif %}
           <span class="text-slate-300">|</span>
-          
+
           {% if product.stock > 5 %}
           <span class="text-xs font-semibold text-emerald-600 flex items-center gap-1">
             <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> In Stock ({{ product.stock }} units)
@@ -92,12 +88,44 @@
           {% endif %}
         </div>
 
-        <!-- Price Display (Corrected Discount Calculations) -->
-        <div class="flex items-center gap-3 pt-2">
-          <span class="text-3xl font-black text-slate-900">৳ {{ product.effective_price }}</span>
+        <!-- Price Display -->
+        <div class="flex items-center gap-3 pt-2 flex-wrap">
+          <span class="text-2xl sm:text-3xl font-black text-slate-900">৳ {{ product.effective_price|clean_price }}</span>
           {% if product.discount_price and product.discount_price < product.price %}
-          <span class="text-base text-slate-400 line-through">৳ {{ product.price }}</span>
-          <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md">Save ৳{{ product.save_amount }}</span>
+          <span class="text-base text-slate-400 line-through">৳ {{ product.price|clean_price }}</span>
+          <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md">Save ৳{{ product.save_amount|clean_price }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Quantity Selector -->
+        {% if product.stock > 0 %}
+        <div class="pt-1">
+          <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Quantity</label>
+          <div class="inline-flex items-center border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
+            <button type="button" onclick="changeDetailQty(-1)" class="w-11 h-11 flex items-center justify-center text-slate-600 font-bold text-lg hover:bg-slate-100 transition">&minus;</button>
+            <input type="text" id="detailQtyInput" value="1" readonly class="w-12 h-11 text-center font-bold text-sm bg-transparent outline-none border-x border-slate-200">
+            <button type="button" onclick="changeDetailQty(1)" class="w-11 h-11 flex items-center justify-center text-slate-600 font-bold text-lg hover:bg-slate-100 transition">+</button>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Delivery & Trust Card -->
+        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-2.5 text-xs">
+          <div class="flex items-center justify-between font-semibold text-slate-700">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck text-amber-900"></i> Inside Dhaka</span>
+            <span class="font-bold">৳{{ site_setting.delivery_fee_dhaka|clean_price }}</span>
+          </div>
+          <div class="flex items-center justify-between font-semibold text-slate-700">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck-fast text-amber-900"></i> Outside Dhaka</span>
+            <span class="font-bold">৳{{ site_setting.delivery_fee_outside|clean_price }}</span>
+          </div>
+          <div class="flex items-center gap-1.5 font-semibold text-emerald-700">
+            <i class="fa-solid fa-money-bill-wave"></i> Cash on Delivery Available
+          </div>
+          {% if site_setting.whatsapp_number %}
+          <a href="https://wa.me/{{ site_setting.whatsapp_number }}?text={{ product.name|urlencode }}%20inquiry" target="_blank" rel="noopener" class="flex items-center gap-1.5 font-bold text-amber-900 hover:underline">
+            <i class="fa-brands fa-whatsapp"></i> Ask about this product on WhatsApp
+          </a>
           {% endif %}
         </div>
 
@@ -108,25 +136,18 @@
         </div>
       </div>
 
-      <!-- Action Buttons with Shared Cart / Buy Now -->
+      <!-- Action Buttons -->
       <div class="space-y-3 pt-6 border-t">
-        {% if product.stock > 0 %}
-        <!-- Quantity Stepper (clamped to available stock) -->
-        <div class="flex items-center gap-3">
-          <div class="flex items-center border border-slate-200 rounded-xl overflow-hidden">
-            <button type="button" onclick="changePdQty(-1)" class="w-9 h-9 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold">&minus;</button>
-            <span id="pdQtyValue" class="w-10 text-center text-sm font-bold text-slate-900">1</span>
-            <button type="button" id="pdQtyIncrementBtn" onclick="changePdQty(1)" class="w-9 h-9 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold">+</button>
-          </div>
-          <span class="text-[11px] text-slate-400 font-semibold">{{ product.stock }} available</span>
-        </div>
-        {% endif %}
-        <div class="flex gap-4">
+        <div class="flex gap-3 sm:gap-4">
           {% if product.stock > 0 %}
-          <button data-add-btn="{{ product.id }}" data-stock="{{ product.stock }}" onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}', getPdQty())" class="flex-1 bg-slate-900 hover:bg-black text-white py-3.5 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm">
-            <i class="fa-solid fa-basket-shopping"></i> Add to Bag
+          <button
+            type="button"
+            data-add-btn="{{ product.id }}"
+            onclick="addToBagFromDetail()"
+            class="flex-1 min-h-[46px] bg-slate-900 hover:bg-black text-white py-3.5 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+            <i class="fa-solid fa-basket-shopping"></i> <span>Add to Bag</span>
           </button>
-          <button onclick="buyNowSingle('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', '{{ product.stock }}', getPdQty())" class="flex-1 bg-[#5C3214] hover:opacity-95 text-white py-3.5 rounded-2xl font-bold text-xs transition shadow-lg">
+          <button type="button" onclick="buyNowFromDetail()" class="flex-1 min-h-[46px] bg-theme hover:opacity-95 text-white py-3.5 rounded-2xl font-bold text-xs transition shadow-lg">
             Buy Now
           </button>
           {% else %}
@@ -140,8 +161,8 @@
   </div>
 
   <!-- Reviews & Rating Form Section -->
-  <div class="mt-12 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-8">
-    <div class="flex justify-between items-center border-b pb-4">
+  <div class="mt-10 sm:mt-12 bg-white rounded-3xl p-5 sm:p-8 border border-slate-200/90 shadow-sm space-y-8">
+    <div class="flex justify-between items-center border-b pb-4 flex-wrap gap-2">
       <h3 class="text-lg font-black text-slate-900">Verified Customer Reviews ({{ reviews.count }})</h3>
       {% if product.avg_rating %}
       <div class="text-xs text-amber-500 font-bold">Average: ★ {{ product.avg_rating }} / 5.0</div>
@@ -150,18 +171,17 @@
       {% endif %}
     </div>
 
-    <!-- Review Form with CSRF -->
-    <form action="{% url 'add_product_review' product.pk %}" method="POST" class="bg-slate-50 p-5 rounded-2xl border space-y-3">
+    <form action="{% url 'add_product_review' product.pk %}" method="POST" class="bg-slate-50 p-4 sm:p-5 rounded-2xl border space-y-3">
       {% csrf_token %}
       <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Leave a Review</h4>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-[11px] font-bold text-slate-600 mb-1">Your Full Name *</label>
-          <input type="text" name="name" required placeholder="e.g. Mosabbir Ahmad" class="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none">
+          <input type="text" name="name" required placeholder="e.g. Mosabbir Ahmad" class="w-full border rounded-xl px-3 py-2.5 text-base sm:text-xs bg-white outline-none">
         </div>
         <div>
           <label class="block text-[11px] font-bold text-slate-600 mb-1">Rating *</label>
-          <select name="rating" class="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none font-bold text-amber-500">
+          <select name="rating" class="w-full border rounded-xl px-3 py-2.5 text-base sm:text-xs bg-white outline-none font-bold text-amber-500">
             <option value="5">⭐⭐⭐⭐⭐ (5 Stars - Excellent)</option>
             <option value="4">⭐⭐⭐⭐ (4 Stars - Good)</option>
             <option value="3">⭐⭐⭐ (3 Stars - Average)</option>
@@ -172,14 +192,13 @@
       </div>
       <div>
         <label class="block text-[11px] font-bold text-slate-600 mb-1">Comment / Feedback *</label>
-        <textarea name="comment" required rows="2" placeholder="Write your honest experience with this item..." class="w-full border rounded-xl p-3 text-xs bg-white outline-none"></textarea>
+        <textarea name="comment" required rows="2" placeholder="Write your honest experience with this item..." class="w-full border rounded-xl p-3 text-base sm:text-xs bg-white outline-none"></textarea>
       </div>
-      <button type="submit" class="bg-slate-900 hover:bg-black text-white px-6 py-2 rounded-xl text-xs font-bold transition">
+      <button type="submit" class="bg-slate-900 hover:bg-black text-white px-6 py-2.5 rounded-xl text-xs font-bold transition min-h-[42px]">
         Submit Review
       </button>
     </form>
 
-    <!-- Reviews List -->
     <div class="space-y-4 divide-y divide-slate-100">
       {% for r in reviews %}
       <div class="pt-4 first:pt-0 space-y-1">
@@ -198,39 +217,13 @@
     </div>
   </div>
 
-  <!-- Related Products ("You may also like") -->
+  <!-- Related Products -->
   {% if related_products %}
-  <div class="mt-14 space-y-6">
-    <h3 class="text-xl font-black text-slate-900 tracking-tight">You may also like</h3>
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+  <div class="mt-12 sm:mt-14 space-y-6">
+    <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">You may also like</h3>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
       {% for rp in related_products %}
-      <div class="bg-white p-3.5 rounded-3xl border border-slate-200/90 hover:shadow-md transition flex flex-col justify-between group">
-        <div>
-          <a href="{% url 'product_detail' rp.pk %}" class="aspect-square bg-slate-50 rounded-2xl overflow-hidden p-2 flex items-center justify-center mb-2 block border border-slate-100">
-            {% if rp.image %}<img src="{{ rp.image.url }}" class="max-h-full max-w-full object-contain group-hover:scale-105 transition">{% endif %}
-          </a>
-          <div class="text-[9px] text-slate-400 font-mono font-bold">SKU: {{ rp.product_code|default:"FT-101" }}</div>
-          <a href="{% url 'product_detail' rp.pk %}" class="text-xs font-bold text-slate-800 line-clamp-1 block hover:text-amber-900">{{ rp.name }}</a>
-          
-          {% if rp.stock > 0 %}
-          <span class="text-[10px] font-semibold text-emerald-600 mt-1 block">● In Stock</span>
-          {% else %}
-          <span class="text-[10px] font-semibold text-rose-500 mt-1 block">● Out of Stock</span>
-          {% endif %}
-        </div>
-        <div class="mt-3">
-          <div class="text-xs font-black text-slate-900 mb-2">৳ {{ rp.effective_price }}</div>
-          {% if rp.stock > 0 %}
-          <button data-add-btn="{{ rp.id }}" data-stock="{{ rp.stock }}" onclick="addToBag('{{ rp.id }}', '{{ rp.name|escapejs }}', '{{ rp.effective_price }}', '{{ rp.price }}', '{% if rp.image %}{{ rp.image.url }}{% endif %}', '{{ rp.stock }}')" class="w-full bg-slate-900 hover:bg-black text-white py-1.5 rounded-xl text-[11px] font-bold transition">
-            Add to Bag
-          </button>
-          {% else %}
-          <button disabled class="w-full bg-slate-200 text-slate-400 py-1.5 rounded-xl text-[11px] font-bold cursor-not-allowed">
-            Sold Out
-          </button>
-          {% endif %}
-        </div>
-      </div>
+      {% include 'shop/partials/product_card.html' with product=rp %}
       {% endfor %}
     </div>
   </div>
@@ -250,39 +243,46 @@
     thumbElement.classList.add('border-amber-900');
   }
 
-  // Quantity stepper for the main Add to Bag / Buy Now actions. Clamped to
-  // the product's current stock so a customer can't select more than is
-  // actually available.
-  const PD_MAX_STOCK = parseInt('{{ product.stock|default:0 }}', 10) || 0;
-  let pdQty = 1;
-  function changePdQty(delta) {
-    const valueEl = document.getElementById('pdQtyValue');
-    if (!valueEl) return;
-    const next = pdQty + delta;
-    if (next < 1) return;
-    if (PD_MAX_STOCK && next > PD_MAX_STOCK) {
-      showToast(`Only ${PD_MAX_STOCK} in stock`, 'warning');
-      return;
-    }
-    pdQty = next;
-    valueEl.innerText = pdQty;
-  }
-  function getPdQty() {
-    return pdQty;
+  const DETAIL_PRODUCT = {
+    id: '{{ product.id }}',
+    name: '{{ product.name|escapejs }}',
+    effectivePrice: '{{ product.effective_price }}',
+    regularPrice: '{{ product.price }}',
+    image: '{% if product.image %}{{ product.image.url }}{% endif %}',
+    maxStock: {{ product.stock }},
+  };
+
+  function changeDetailQty(delta) {
+    const input = document.getElementById('detailQtyInput');
+    if (!input) return;
+    let val = parseInt(input.value) + delta;
+    if (val < 1) val = 1;
+    if (DETAIL_PRODUCT.maxStock && val > DETAIL_PRODUCT.maxStock) val = DETAIL_PRODUCT.maxStock;
+    input.value = val;
   }
 
-  // BUG FIX: Buy Now used to call addToBag() (which auto-opened the drawer)
-  // right before opening the checkout modal, so the drawer flashed open for
-  // a split second behind the modal. addToBag() no longer opens the drawer
-  // on its own, so this simply ensures the item is in the cart (adding it
-  // with the selected quantity if it wasn't already there -- addToBag's own
-  // duplicate check keeps a re-click from adding it twice) and goes straight
-  // to checkout.
-  function buyNowSingle(id, name, effectivePrice, regularPrice, img, maxStock, qty) {
-    addToBag(id, name, effectivePrice, regularPrice, img, maxStock, qty);
+  function getDetailQty() {
+    const input = document.getElementById('detailQtyInput');
+    return input ? (parseInt(input.value) || 1) : 1;
+  }
+
+  function addToBagFromDetail() {
+    addToBag(DETAIL_PRODUCT.id, DETAIL_PRODUCT.name, DETAIL_PRODUCT.effectivePrice, DETAIL_PRODUCT.regularPrice, DETAIL_PRODUCT.image, DETAIL_PRODUCT.maxStock, getDetailQty());
+  }
+
+  // BUG FIX: "Buy Now" used to call addToBag() unconditionally -- which, now
+  // that addToBag() refuses to duplicate an item already in the cart, meant
+  // Buy Now would silently do nothing for a product you'd already added.
+  // It now ensures the item is in the cart (adding it with the selected
+  // quantity only if it's not already there) without opening the drawer,
+  // then opens checkout directly either way.
+  function buyNowFromDetail() {
+    const id = String(DETAIL_PRODUCT.id);
+    const alreadyInCart = cart.some(i => String(i.id) === id);
+    if (!alreadyInCart) {
+      addToBag(DETAIL_PRODUCT.id, DETAIL_PRODUCT.name, DETAIL_PRODUCT.effectivePrice, DETAIL_PRODUCT.regularPrice, DETAIL_PRODUCT.image, DETAIL_PRODUCT.maxStock, getDetailQty());
+    }
     openCheckoutModal();
   }
 </script>
 {% endblock %}
-
-

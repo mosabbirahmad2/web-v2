@@ -5,6 +5,7 @@ from decimal import Decimal
 from datetime import timedelta
 from functools import wraps
 
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -12,9 +13,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Sum, Q, Avg, F
+from django.db.models import Count, Sum, Q, Avg, F, Case, When, DecimalField, Value
 from django.db.models.functions import TruncDate, TruncHour
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, Http404
 from django.utils import timezone
 from django.utils.html import strip_tags, escape
 from django.views.decorators.http import require_POST
@@ -128,8 +129,11 @@ def shop_category_view(request, slug):
     # were already being queried to pull in products, but the storefront never
     # rendered them anywhere, so customers had no way to browse/filter by
     # subcategory. We now pass the subcategory list + an optional ?sub=<id>
-    # filter to the template so filter chips can be rendered and used.
-    subcategories = category.subcategories.filter(is_active=True)
+    # filter to the template so filter chips can be rendered and used, with
+    # accurate per-chip item counts (e.g. "All (2)", "kskashi (1)").
+    subcategories = category.subcategories.filter(is_active=True).annotate(
+        active_product_count=Count('products', filter=Q(products__is_active=True), distinct=True)
+    )
 
     selected_sub = None
     sub_filter = request.GET.get('sub', '').strip()
@@ -145,17 +149,66 @@ def shop_category_view(request, slug):
             is_active=True
         ).distinct()
 
-    products = products.select_related('category').order_by('-created_at')
+    # Sort & Filter toolbar: ?sort=newest|price_asc|price_desc|discount, ?in_stock=1
+    in_stock_only = request.GET.get('in_stock') == '1'
+    if in_stock_only:
+        products = products.filter(stock__gt=0)
+
+    effective_price_expr = Case(
+        When(discount_price__isnull=False, discount_price__lt=F('price'), then=F('discount_price')),
+        default=F('price'),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    discount_amount_expr = Case(
+        When(discount_price__isnull=False, discount_price__lt=F('price'), then=F('price') - F('discount_price')),
+        default=Value(0),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
+    sort = request.GET.get('sort', 'newest')
+    products = products.select_related('category').annotate(
+        _eff_price=effective_price_expr, _disc_amt=discount_amount_expr
+    )
+    if sort == 'price_asc':
+        products = products.order_by('_eff_price', '-created_at')
+    elif sort == 'price_desc':
+        products = products.order_by('-_eff_price', '-created_at')
+    elif sort == 'discount':
+        products = products.order_by('-_disc_amt', '-created_at')
+    else:
+        sort = 'newest'
+        products = products.order_by('-created_at')
 
     paginator = Paginator(products, 24)
     page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    # Preserve sort/filter/sub query params across pagination links without
+    # the "page" key, so "Next"/"Previous" don't reset the user's sort/filter.
+    pagination_qs = request.GET.copy()
+    pagination_qs.pop('page', None)
+    pagination_qs = pagination_qs.urlencode()
 
     return render(request, 'shop/category_products.html', {
         'category': category,
         'subcategories': subcategories,
         'selected_sub': selected_sub,
-        'products': page_obj
+        'products': page_obj,
+        'current_sort': sort,
+        'in_stock_only': in_stock_only,
+        'pagination_qs': pagination_qs,
     })
+
+def favicon_view(request):
+    # BUG FIX: /favicon.ico returned 404 (no favicon file/route existed at
+    # all). Served directly here -- rather than relying on static-file
+    # collection/manifest hashing -- so it works identically whether DEBUG
+    # is True or False, with zero extra deploy steps.
+    favicon_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'favicon.svg')
+    try:
+        with open(favicon_path, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/svg+xml')
+    except FileNotFoundError:
+        raise Http404
 def robots_txt_view(request):
     content = (
         "User-agent: *\n"
@@ -399,6 +452,7 @@ def place_order_api(request):
                 total_amount=total_amount
             )
 
+            order_items_payload = []
             for prod, qty, price in validated_items:
                 OrderItem.objects.create(
                     order=order,
@@ -409,6 +463,14 @@ def place_order_api(request):
                     price=price
                 )
                 Product.objects.filter(id=prod.id).update(stock=F('stock') - qty)
+                order_items_payload.append({
+                    'name': prod.name,
+                    'code': prod.product_code or '',
+                    'qty': qty,
+                    'price': str(price),
+                    'line_total': str((Decimal(str(price)) * qty).quantize(Decimal('0.01'))),
+                    'image': prod.image.url if prod.image else None,
+                })
 
             if applied_promo:
                 PromoCode.objects.filter(id=applied_promo.id).update(used_count=F('used_count') + 1)
@@ -421,10 +483,27 @@ def place_order_api(request):
 
             cache.set(cache_key, True, timeout=5)
 
+            # RICH ORDER RECEIPT: the order-confirmation popup used to only
+            # show an Order ID + grand total, with no customer name, no
+            # itemized product list/quantities and no price breakdown -- so
+            # buyers had nothing resembling a trustworthy digital receipt.
+            # `status`/`order_id`/`total` are kept as-is for backward
+            # compatibility; everything else below is additive.
             return JsonResponse({
                 'status': 'success',
                 'order_id': order.order_id,
-                'total': str(order.total_amount)
+                'total': str(order.total_amount),
+                'customer_name': order.customer_name,
+                'customer_phone': order.customer_phone,
+                'district': order.district,
+                'thana': order.thana or '',
+                'shipping_address': order.shipping_address,
+                'delivery_zone': order.delivery_zone,
+                'subtotal': str(subtotal.quantize(Decimal('0.01'))),
+                'discount_amount': str(discount_amount.quantize(Decimal('0.01'))),
+                'delivery_fee': str(Decimal(str(delivery_fee)).quantize(Decimal('0.01'))),
+                'estimated_delivery': "1–2 Business Days" if is_dhaka else "2–4 Business Days",
+                'items': order_items_payload,
             })
 
     except Exception as e:
