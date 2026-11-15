@@ -26,3 +26,6 @@ def clean_price(value):
     if amount == amount.to_integral_value():
         return f"{int(amount):,}"
     return f"{amount:,.2f}"
+
+
+

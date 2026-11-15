@@ -241,3 +241,6 @@ class PageRenderSmokeTests(TestCase):
     def test_robots_txt_renders(self):
         res = self.client.get(reverse('robots_txt'))
         self.assertEqual(res.status_code, 200)
+
+
+

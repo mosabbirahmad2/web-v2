@@ -2,85 +2,110 @@
 {% load shop_extras %}
 {% block title %}{{ site_setting.site_name }} - Premium Mobile Covers & Accessories{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Horizontal product carousels (Flash Sale / Trending / etc.) need their
+     scrollbar hidden while staying swipeable/scrollable -- Tailwind ships no
+     core utility for this, so it's a small hand-written addition here
+     instead of pulling in a plugin for one rule. */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+{% endblock %}
+
 {% block content %}
-<!-- Hero Section -->
+<!-- Hero Section: compact 2-column promo banner -->
 <section class="bg-white border-b border-slate-200/80">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-    <div class="max-w-2xl">
-      <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 mb-4">
-        {{ site_setting.site_name }}
-      </span>
-      <h1 class="text-2xl sm:text-4xl font-black text-slate-900 leading-tight tracking-tight">
-        Premium Phone Covers &amp; Key Rings, Delivered to Your Door
-      </h1>
-      <p class="text-sm text-slate-500 mt-3 leading-relaxed">
-        Carefully selected accessories at honest prices -- pay only when it arrives.
-      </p>
-      <div class="flex flex-wrap gap-3 mt-6">
-        <a href="#all-products-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-theme text-white rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
-          Shop Collection
-        </a>
-        <a href="#category-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-white border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs hover:bg-slate-50 transition">
-          Browse Categories
-        </a>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7">
+    <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 items-center">
+
+      <!-- Left: copy + primary CTA + trust strip -->
+      <div>
+        <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 mb-3 sm:mb-4">
+          {{ site_setting.site_name }}
+        </span>
+        <h1 class="text-2xl sm:text-4xl font-black text-slate-900 leading-tight tracking-tight">
+          Premium Phone Covers &amp; Key Rings, Delivered to Your Door
+        </h1>
+        <p class="text-sm text-slate-500 mt-2.5 leading-relaxed max-w-md">
+          Carefully selected accessories at honest prices -- pay only when it arrives.
+        </p>
+        <div class="flex flex-wrap gap-3 mt-5">
+          <a href="#all-products-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-theme text-white rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
+            Shop Collection
+          </a>
+          <a href="#category-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-white border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs hover:bg-slate-50 transition">
+            Browse Categories
+          </a>
+        </div>
+        <div class="flex flex-wrap gap-x-5 gap-y-2 mt-5 text-[11px] font-semibold text-slate-600">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash on Delivery</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck-fast text-amber-700"></i> Fast Nationwide Delivery</span>
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-blue-600"></i> Quality Checked</span>
+        </div>
       </div>
-      <div class="flex flex-wrap gap-x-6 gap-y-2 mt-7 text-[11px] font-semibold text-slate-600">
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash on Delivery</span>
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck-fast text-amber-700"></i> Fast Nationwide Delivery</span>
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-blue-600"></i> Quality Checked</span>
+
+      <!-- Right: decorative promo panel. Built from CSS + icons only (no
+           HeroBanner image model exists in the backend), so it carries the
+           site's own theme color rather than referencing a file that may
+           not exist. Hidden below lg to keep mobile hero compact. -->
+      <div class="hidden lg:block relative">
+        <div class="rounded-[1.75rem] bg-theme p-8 aspect-[16/10] relative overflow-hidden flex items-center justify-center shadow-xl">
+          <div class="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10"></div>
+          <div class="absolute -bottom-14 -left-10 w-56 h-56 rounded-full bg-white/10"></div>
+          <div class="relative z-10 flex items-center gap-4">
+            <div class="w-24 h-36 bg-white/95 rounded-2xl shadow-2xl -rotate-6 flex items-center justify-center">
+              <i class="fa-solid fa-mobile-screen-button text-3xl text-slate-800"></i>
+            </div>
+            <div class="w-24 h-36 bg-white rounded-2xl shadow-2xl rotate-3 flex items-center justify-center translate-y-3">
+              <i class="fa-solid fa-key text-3xl text-amber-800"></i>
+            </div>
+          </div>
+          <div class="absolute bottom-5 left-5 right-5 bg-white/95 backdrop-blur rounded-xl px-4 py-2.5 flex items-center justify-between shadow-lg">
+            <span class="text-[11px] font-bold text-slate-900">Cash on Delivery</span>
+            <span class="text-[11px] font-black text-emerald-600">Nationwide</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Categories Section -->
-<section id="category-section" class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-  <div class="flex items-baseline justify-between mb-5">
-    <h2 class="text-lg font-black text-slate-900">Shop by Category</h2>
-    <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">View all products &rarr;</a>
+<!-- Categories: compact horizontal strip (Dazzle style) -->
+<section id="category-section" class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+  <div class="flex items-baseline justify-between mb-3 sm:mb-4">
+    <h2 class="text-lg sm:text-xl font-black text-slate-900">Categories</h2>
+    <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">See all &rarr;</a>
   </div>
-  <div class="flex flex-wrap gap-4 sm:gap-5">
+  <div class="flex flex-wrap gap-3 sm:gap-4">
     {% for cat in categories %}
-    <div class="group bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col items-center text-center w-28 sm:w-36">
-      <a href="{% url 'shop_category' cat.slug %}" class="flex flex-col items-center w-full">
-        <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-3 group-hover:scale-105 transition-all duration-300">
-          {% if cat.image %}
-            <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
-          {% else %}
-            <i class="fa-solid fa-shapes text-3xl text-slate-300"></i>
-          {% endif %}
-        </div>
-        <span class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</span>
-        <!-- BUG FIX: used to read {{ cat.products.count }}, which only
-             counts products directly on the parent category and always
-             showed "0 items" whenever products live in its subcategories
-             instead. total_active_products (see Category model) adds
-             direct + subcategory products together. -->
-        <span class="text-[11px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
-      </a>
-      {% if cat.subcategories.all %}
-      <div class="flex flex-wrap justify-center gap-1 mt-2">
-        {% for sub in cat.subcategories.all %}
-        {% if sub.is_active %}
-        <a href="{% url 'shop_category' sub.slug %}" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-200 transition">
-          {{ sub.name }}
-        </a>
+    <a href="{% url 'shop_category' cat.slug %}" class="group shrink-0 w-24 sm:w-28 bg-white rounded-2xl border border-slate-200/90 p-2.5 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-2 group-hover:scale-105 transition-transform duration-300">
+        {% if cat.image %}
+        <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
+        {% else %}
+        <i class="fa-solid fa-shapes text-xl text-slate-300"></i>
         {% endif %}
-        {% endfor %}
       </div>
-      {% endif %}
-    </div>
+      <!-- Subcategories intentionally not listed here (that's what bloated
+           the old card's height) -- they're still fully browsable via the
+           header's mega-dropdown, the mobile drawer accordion, and the
+           chips on the category page itself. -->
+      <span class="text-[11px] sm:text-xs font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1 w-full">{{ cat.name }}</span>
+      <span class="text-[9.5px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
+    </a>
     {% empty %}
     <p class="text-xs text-slate-400">No categories yet.</p>
     {% endfor %}
   </div>
 </section>
 
-<!-- Dynamic Showcase Sections -->
+<!-- Dynamic Showcase Sections: compact strips with a single-row carousel -->
 {% for section in showcase_sections %}
-<section class="py-5">
+{% with product_count=section.products.all|length %}
+<section class="py-3 sm:py-4">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="rounded-[1.75rem] sm:rounded-[2rem] p-4 sm:p-10 shadow-sm
+    <div class="rounded-2xl p-4 sm:p-6 shadow-sm
       {% if section.background_style == 'brown' %}bg-[#5C3214] text-white
       {% elif section.background_style == 'dark' %}bg-slate-900 text-white
       {% elif section.background_style == 'navy' %}bg-[#0B1F3A] text-white
@@ -90,31 +115,65 @@
       {% elif section.background_style == 'rose' %}bg-[#FDEEF1] text-slate-900 border border-rose-100
       {% elif section.background_style == 'slate' %}bg-slate-100 text-slate-900 border border-slate-200
       {% else %}bg-white text-slate-900 border border-slate-200/80{% endif %}">
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8">
-      <h2 class="text-xl sm:text-3xl font-black tracking-tight">{{ section.title }}</h2>
-      {% if section.has_countdown and section.end_time %}
-      <div class="flex items-center gap-1.5 text-xs font-mono font-bold countdown-timer" data-endtime="{{ section.end_time|date:'c' }}">
-        <span class="bg-black/30 backdrop-blur px-2.5 py-1.5 rounded-lg cd-h">00</span> :
-        <span class="bg-black/30 backdrop-blur px-2.5 py-1.5 rounded-lg cd-m">00</span> :
-        <span class="bg-black/30 backdrop-blur px-2.5 py-1.5 rounded-lg cd-s">00</span>
-      </div>
-      {% endif %}
-    </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-      {% for product in section.products.all %}
-      <div class="text-slate-900">
-        {% include 'shop/partials/product_card.html' with product=product %}
+      <!-- Dazzle-style compact header: title + inline countdown chips on the
+           left, "See All" on the right. -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-lg sm:text-xl font-black tracking-tight">{{ section.title }}</h2>
+          {% if section.has_countdown and section.end_time %}
+          <div class="flex items-center gap-1 text-[10px] sm:text-[11px] font-mono font-black countdown-timer" data-endtime="{{ section.end_time|date:'c' }}">
+            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-d leading-none">00</span><span class="opacity-50">:</span>
+            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-h leading-none">00</span><span class="opacity-50">:</span>
+            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-m leading-none">00</span><span class="opacity-50">:</span>
+            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-s leading-none">00</span>
+          </div>
+          {% endif %}
+        </div>
+        <a href="#all-products-section" class="text-xs sm:text-sm font-bold inline-flex items-center gap-1 shrink-0 opacity-90 hover:opacity-100 hover:underline underline-offset-2">
+          See All <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </a>
       </div>
-      {% endfor %}
-    </div>
+
+      <!-- Single-row carousel: 5-up on lg+, swipeable 2-up on mobile. Never
+           wraps into extra rows, so the section can never grow tall. -->
+      <div class="relative" data-carousel>
+        <div class="overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar" data-carousel-track>
+          <div class="flex gap-2.5 sm:gap-3 lg:gap-4">
+            {% for product in section.products.all %}
+            <div class="snap-start shrink-0 w-[calc(50%-0.3125rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)] lg:w-[calc(20%-0.8rem)]">
+              <div class="text-slate-900 h-full">
+                {% include 'shop/partials/product_card.html' with product=product %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% if product_count > 5 %}
+        <button type="button" data-carousel-prev aria-label="Previous products"
+          class="hidden lg:flex absolute left-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 items-center justify-center text-slate-700 hover:bg-slate-50 z-10">
+          <i class="fa-solid fa-chevron-left text-xs"></i>
+        </button>
+        <button type="button" data-carousel-next aria-label="Next products"
+          class="hidden lg:flex absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white shadow-lg border border-slate-200 items-center justify-center text-slate-700 hover:bg-slate-50 z-10">
+          <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+        {% endif %}
+      </div>
+
+      {% if product_count > 5 %}
+      <div class="flex justify-center gap-1.5 mt-3" data-carousel-dots></div>
+      {% endif %}
+
     </div>
   </div>
 </section>
+{% endwith %}
 {% endfor %}
 
 <!-- Complete Products Catalog -->
-<section id="all-products-section" class="py-12 sm:py-14 bg-white border-t border-slate-200">
+<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
     <div class="flex flex-wrap justify-between items-center gap-3 mb-8 sm:mb-10 pb-4 border-b border-slate-100">
       <div>
@@ -158,20 +217,101 @@
 
 {% block extra_js %}
 <script>
+  // Countdown badges next to a showcase section's title (dd : hh : mm : ss).
   setInterval(() => {
     document.querySelectorAll('.countdown-timer').forEach(el => {
       const endTime = new Date(el.dataset.endtime).getTime();
       const now = new Date().getTime();
       const diff = endTime - now;
       if (diff > 0) {
-        const h = Math.floor(diff / (1000 * 60 * 60));
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const s = Math.floor((diff % (1000 * 60)) / 1000);
+        const dEl = el.querySelector('.cd-d');
+        if (dEl) dEl.innerText = String(d).padStart(2, '0');
         el.querySelector('.cd-h').innerText = String(h).padStart(2, '0');
         el.querySelector('.cd-m').innerText = String(m).padStart(2, '0');
         el.querySelector('.cd-s').innerText = String(s).padStart(2, '0');
       }
     });
   }, 1000);
+
+  // Dazzle-style single-row product carousels: horizontal scroll-snap with
+  // arrow buttons + pagination dots. One generic implementation drives every
+  // showcase section on the page -- nothing here depends on how many
+  // sections exist or how many products are in each.
+  (function initProductCarousels() {
+    const carousels = document.querySelectorAll('[data-carousel]');
+
+    carousels.forEach((carousel) => {
+      const track = carousel.querySelector('[data-carousel-track]');
+      const prevBtn = carousel.querySelector('[data-carousel-prev]');
+      const nextBtn = carousel.querySelector('[data-carousel-next]');
+      // The dots row is a sibling of the carousel wrapper, not a child of it.
+      const dotsWrap = carousel.parentElement.querySelector('[data-carousel-dots]');
+      if (!track) return;
+
+      function pageCount() {
+        if (!track.clientWidth) return 1;
+        return Math.max(1, Math.round(track.scrollWidth / track.clientWidth));
+      }
+      function currentPage() {
+        if (!track.clientWidth) return 0;
+        return Math.round(track.scrollLeft / track.clientWidth);
+      }
+      function updateDots() {
+        if (!dotsWrap) return;
+        const dots = dotsWrap.querySelectorAll('.carousel-dot');
+        const active = currentPage();
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('opacity-100', i === active);
+          dot.classList.toggle('w-4', i === active);
+          dot.classList.toggle('opacity-25', i !== active);
+          dot.classList.toggle('w-1.5', i !== active);
+        });
+      }
+      function buildDots() {
+        if (!dotsWrap) return;
+        const pages = pageCount();
+        dotsWrap.innerHTML = '';
+        if (pages <= 1) {
+          dotsWrap.classList.add('hidden');
+          return;
+        }
+        dotsWrap.classList.remove('hidden');
+        for (let i = 0; i < pages; i++) {
+          const dot = document.createElement('button');
+          dot.type = 'button';
+          dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+          // bg-current inherits the section's own text color (white on dark
+          // themes, slate-900 on light themes) so dots never need a
+          // per-theme color branch.
+          dot.className = 'carousel-dot h-1.5 w-1.5 rounded-full bg-current opacity-25 transition-all duration-200';
+          dot.addEventListener('click', () => {
+            track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+          });
+          dotsWrap.appendChild(dot);
+        }
+        updateDots();
+      }
+
+      if (prevBtn) prevBtn.addEventListener('click', () => {
+        track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
+      });
+      if (nextBtn) nextBtn.addEventListener('click', () => {
+        track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
+      });
+
+      let scrollTimer;
+      track.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(updateDots, 80);
+      });
+
+      buildDots();
+      window.addEventListener('resize', () => buildDots());
+    });
+  })();
 </script>
 {% endblock %}

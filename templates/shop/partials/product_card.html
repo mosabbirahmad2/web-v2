@@ -1,68 +1,77 @@
 {% load shop_extras %}
-<div class="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col justify-between group h-full">
-  <div>
-    <div class="flex justify-between items-start mb-2 gap-1">
-      {% if product.discount_percent > 0 %}
-      <span class="bg-rose-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">{{ product.discount_percent }}% OFF</span>
-      {% else %}<span></span>{% endif %}
-      {% if product.badge_tag %}
-      <span class="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 whitespace-nowrap">🔥 {{ product.badge_tag }}</span>
-      {% endif %}
-    </div>
+<div class="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 flex flex-col h-full group">
 
-    <a href="{% url 'product_detail' product.pk %}" class="aspect-square rounded-xl sm:rounded-2xl bg-[#F6F7F9] overflow-hidden mb-3 flex items-center justify-center p-2 block border border-slate-100 group-hover:shadow-inner">
+  <!-- Compact image frame with overlaid badges (Dazzle style) -->
+  <div class="relative">
+    <a href="{% url 'product_detail' product.pk %}" class="block h-36 sm:h-40 rounded-lg sm:rounded-xl bg-[#F6F7F9] overflow-hidden border border-slate-100">
       {% if product.image %}
-      <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+      <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300">
       {% else %}
-      <i class="fa-solid fa-box text-slate-300 text-3xl"></i>
+      <div class="w-full h-full flex items-center justify-center">
+        <i class="fa-solid fa-box text-slate-300 text-2xl"></i>
+      </div>
       {% endif %}
     </a>
 
-    <div class="text-[10px] text-slate-400 font-mono font-bold">SKU: {{ product.product_code|default:"FT-101" }}</div>
-    <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs sm:text-[13px] text-slate-900 line-clamp-2 hover:text-amber-900 block mt-0.5 leading-snug min-h-[2.2em]">
+    <div class="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start gap-1 pointer-events-none">
+      {% if product.discount_percent > 0 %}
+      <span class="bg-rose-500 text-white text-[9px] font-black px-1.5 py-[3px] rounded-md shadow-sm leading-none">{{ product.discount_percent }}% OFF</span>
+      {% else %}<span></span>{% endif %}
+      {% if product.badge_tag %}
+      <span class="bg-white/95 text-amber-800 text-[8.5px] font-bold px-1.5 py-[3px] rounded-md border border-amber-200 whitespace-nowrap shadow-sm leading-none">🔥 {{ product.badge_tag }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tight content block -->
+  <div class="flex-1 flex flex-col mt-2 px-0.5">
+    <div class="text-[9.5px] text-slate-400 font-mono font-bold tracking-wide">SKU: {{ product.product_code|default:"FT-101" }}</div>
+
+    <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs text-slate-900 line-clamp-2 hover:text-amber-900 leading-snug mt-0.5 min-h-[2.1em]">
       {{ product.name }}
     </a>
 
-    {% if product.avg_rating %}
-    <div class="flex items-center gap-1 text-[11px] text-amber-500 font-bold mt-1">
-      <i class="fa-solid fa-star"></i> {{ product.avg_rating }} <span class="text-slate-400 font-normal">({{ product.reviews_count }})</span>
-    </div>
-    {% endif %}
-
-    {% if product.stock > 5 %}
-    <div class="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1">
-      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> In Stock
-    </div>
-    {% elif product.stock > 0 %}
-    <div class="text-[11px] font-bold text-amber-600 mt-1 flex items-center gap-1">
-      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span> Only {{ product.stock }} left!
-    </div>
-    {% else %}
-    <div class="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-      <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> Out of Stock
-    </div>
-    {% endif %}
-  </div>
-
-  <div class="mt-3 sm:mt-4">
-    <div class="flex items-center gap-2 mb-2.5 sm:mb-3 flex-wrap">
-      <span class="text-sm sm:text-base font-black text-slate-900">৳ {{ product.effective_price|clean_price }}</span>
-      {% if product.discount_price and product.discount_price < product.price %}
-      <span class="text-[11px] sm:text-xs text-slate-400 line-through">৳ {{ product.price|clean_price }}</span>
+    <div class="flex items-center gap-2 mt-1 flex-wrap">
+      {% if product.stock > 5 %}
+      <span class="text-[10px] font-bold text-emerald-600">&bull; In Stock</span>
+      {% elif product.stock > 0 %}
+      <span class="text-[10px] font-bold text-amber-600">&bull; Only {{ product.stock }} left</span>
+      {% else %}
+      <span class="text-[10px] font-bold text-rose-500">&bull; Out of Stock</span>
+      {% endif %}
+      {% if product.avg_rating %}
+      <span class="text-[10px] text-amber-500 font-bold flex items-center gap-0.5 ml-auto">
+        <i class="fa-solid fa-star text-[9px]"></i>{{ product.avg_rating }}<span class="text-slate-400 font-normal">({{ product.reviews_count }})</span>
+      </span>
       {% endif %}
     </div>
-    {% if product.stock > 0 %}
-    <button
-      type="button"
-      data-add-btn="{{ product.id }}"
-      onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', {{ product.stock }}, 1)"
-      class="w-full min-h-[42px] bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm add-to-bag-btn">
-      <i class="fa-solid fa-basket-shopping"></i> <span>Add to Bag</span>
-    </button>
-    {% else %}
-    <button type="button" disabled data-out-of-stock="1" class="w-full min-h-[42px] bg-slate-200 text-slate-400 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed">
-      Out of Stock
-    </button>
-    {% endif %}
+
+    <div class="flex items-baseline gap-1.5 mt-1.5">
+      <span class="text-sm font-black text-slate-900">&#2547; {{ product.effective_price|clean_price }}</span>
+      {% if product.discount_price and product.discount_price < product.price %}
+      <span class="text-[10px] text-slate-400 line-through">&#2547; {{ product.price|clean_price }}</span>
+      {% endif %}
+    </div>
+
+    <!-- Sleek bottom action row: outline-to-dark Add to Bag + square quick-view -->
+    <div class="mt-2 flex items-stretch gap-1.5">
+      {% if product.stock > 0 %}
+      <button
+        type="button"
+        data-add-btn="{{ product.id }}"
+        onclick="addToBag('{{ product.id }}', '{{ product.name|escapejs }}', '{{ product.effective_price }}', '{{ product.price }}', '{% if product.image %}{{ product.image.url }}{% endif %}', {{ product.stock }}, 1)"
+        class="flex-1 h-9 sm:h-[38px] border border-slate-900 text-slate-900 bg-white hover:bg-slate-900 hover:text-white rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 add-to-bag-btn">
+        <i class="fa-solid fa-basket-shopping text-[11px]"></i><span>Add to Bag</span>
+      </button>
+      {% else %}
+      <button type="button" disabled data-out-of-stock="1" class="flex-1 h-9 sm:h-[38px] bg-slate-100 text-slate-400 rounded-lg text-[11px] font-bold cursor-not-allowed">
+        Out of Stock
+      </button>
+      {% endif %}
+      <a href="{% url 'product_detail' product.pk %}" title="View" aria-label="View {{ product.name }}"
+        class="w-9 sm:w-[38px] h-9 sm:h-[38px] shrink-0 border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition">
+        <i class="fa-regular fa-eye text-[13px]"></i>
+      </a>
+    </div>
   </div>
 </div>
