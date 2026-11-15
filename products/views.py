@@ -99,7 +99,29 @@ def home_view(request):
     today = timezone.now().date()
     UniqueVisitorLog.objects.get_or_create(ip_address=ip, date=today)
 
-    categories = Category.objects.filter(is_active=True, parent__isnull=True).prefetch_related('subcategories')
+    categories = list(Category.objects.filter(is_active=True, parent__isnull=True).prefetch_related('subcategories'))
+    category_ids = set()
+    for category in categories:
+        category_ids.add(category.pk)
+        category_ids.update(subcategory.pk for subcategory in category.subcategories.all() if subcategory.is_active)
+
+    category_products = Product.objects.filter(
+        is_active=True, category_id__in=category_ids
+    ).only('id', 'name', 'image', 'category_id').order_by('-created_at')
+    products_by_category = {category.pk: [] for category in categories}
+    subcategory_to_parent = {
+        subcategory.pk: category.pk
+        for category in categories
+        for subcategory in category.subcategories.all()
+        if subcategory.is_active
+    }
+    for product in category_products:
+        parent_id = subcategory_to_parent.get(product.category_id, product.category_id)
+        if parent_id in products_by_category:
+            products_by_category[parent_id].append(product)
+    for category in categories:
+        category.carousel_products = products_by_category[category.pk]
+        category.home_product_count = len(category.carousel_products)
     showcase_sections = ShowcaseSection.objects.filter(is_active=True).prefetch_related('products__category')
     valid_sections = [s for s in showcase_sections if not s.is_expired()]
 

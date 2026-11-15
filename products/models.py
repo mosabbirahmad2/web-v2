@@ -122,7 +122,7 @@ class Category(models.Model):
         if self.image and not getattr(self.image, '_committed', True):
             optimize_image(self.image, max_size=(600, 600))
         if self.banner and not getattr(self.banner, '_committed', True):
-            optimize_image(self.banner, max_size=(1400, 450))
+            optimize_image(self.banner, max_size=(1600, 500))
         super().save(*args, **kwargs)
         cache.delete('global_active_categories')
 

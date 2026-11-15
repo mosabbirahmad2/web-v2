@@ -61,26 +61,47 @@
 </section>
 
 <section id="category-section" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5">
-  <div class="flex items-baseline justify-between mb-3 sm:mb-4">
-    <h2 class="text-lg sm:text-xl font-black text-slate-900">Categories</h2>
-    <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline">See all &rarr;</a>
-  </div>
-  <div class="flex flex-wrap gap-3 sm:gap-4">
-    {% for cat in categories %}
-    <a href="{% url 'shop_category' cat.slug %}" class="group shrink-0 w-[calc(33.333%-0.5rem)] sm:w-36 md:w-40 bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
-      <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden mb-2.5 group-hover:scale-105 transition-transform duration-300">
-        {% if cat.image %}
-        <img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
-        {% else %}
-        <i class="fa-solid fa-shapes text-2xl text-slate-300"></i>
-        {% endif %}
+  <div class="rounded-2xl bg-[#292522] text-white px-4 sm:px-8 py-5 sm:py-7 overflow-hidden">
+    <div class="flex items-baseline justify-between mb-5 sm:mb-6">
+      <h2 class="text-xl sm:text-2xl font-black tracking-tight">Categories</h2>
+      <a href="#all-products-section" class="text-xs font-bold text-amber-200 hover:text-white transition">See all &rarr;</a>
+    </div>
+    <div class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-1">
+      {% for cat in categories %}
+      <div class="group shrink-0 w-[112px] sm:w-[142px] snap-start text-center" data-category-gallery>
+        <div class="rounded-[1.5rem] border border-amber-500/80 bg-[#342b23] p-2.5 sm:p-3 transition-colors group-hover:bg-[#403326]">
+          <div class="overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth rounded-xl aspect-square" data-category-track>
+            <div class="flex h-full transition-transform duration-300 ease-out" data-category-slides>
+              {% for product in cat.carousel_products %}
+              <a href="{% url 'shop_category' cat.slug %}" aria-label="Browse {{ cat.name }} products, including {{ product.name }}" class="w-full h-full shrink-0 snap-center flex items-center justify-center bg-[#342b23]">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="w-full h-full object-contain p-1.5">
+                {% else %}
+                <i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>
+                {% endif %}
+              </a>
+              {% empty %}
+              <a href="{% url 'shop_category' cat.slug %}" aria-label="{{ cat.name }}" class="w-full h-full shrink-0 flex items-center justify-center bg-[#342b23]">
+                {% if cat.image %}<img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-contain p-1.5">{% else %}<i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>{% endif %}
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% if cat.home_product_count > 1 %}
+        <div class="flex justify-center items-center gap-1 mt-2.5 min-h-2" data-category-dots aria-label="{{ cat.home_product_count }} products in {{ cat.name }}">
+          {% for product in cat.carousel_products %}
+          <button type="button" data-category-dot aria-label="Show {{ product.name }}" class="w-1.5 h-1.5 rounded-full bg-white/55 transition-all duration-200"></button>
+          {% endfor %}
+        </div>
+        {% else %}<div class="min-h-2 mt-2.5"></div>{% endif %}
+        <a href="{% url 'shop_category' cat.slug %}" class="block mt-1 text-xs sm:text-sm font-bold text-white group-hover:text-amber-200 transition line-clamp-1">{{ cat.name }}</a>
+        <span class="block text-[10px] sm:text-[11px] text-white/60 mt-0.5">{{ cat.home_product_count }} item{{ cat.home_product_count|pluralize }}</span>
       </div>
-      <span class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1 w-full">{{ cat.name }}</span>
-      <span class="text-[11px] text-slate-400 mt-0.5">{{ cat.total_active_products }} item{{ cat.total_active_products|pluralize }}</span>
-    </a>
-    {% empty %}
-    <p class="text-xs text-slate-400">No categories yet.</p>
-    {% endfor %}
+      {% empty %}
+      <p class="text-xs text-white/60">No categories yet.</p>
+      {% endfor %}
+    </div>
   </div>
 </section>
 
@@ -141,9 +162,7 @@
         {% endif %}
       </div>
 
-      {% if product_count > 5 %}
       <div class="flex justify-center gap-1.5 mt-3" data-carousel-dots></div>
-      {% endif %}
     </div>
   </div>
 </section>
@@ -193,6 +212,33 @@
 
 {% block extra_js %}
 <script>
+  (function initCategoryGalleries() {
+    document.querySelectorAll('[data-category-gallery]').forEach((gallery) => {
+      const track = gallery.querySelector('[data-category-track]');
+      const dots = Array.from(gallery.querySelectorAll('[data-category-dot]'));
+      if (!track || !dots.length) return;
+
+      function updateActiveDot() {
+        const active = Math.min(dots.length - 1, Math.round(track.scrollLeft / track.clientWidth));
+        dots.forEach((dot, index) => {
+          dot.classList.toggle('w-4', index === active);
+          dot.classList.toggle('bg-amber-300', index === active);
+          dot.classList.toggle('bg-white/55', index !== active);
+        });
+      }
+
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' }));
+      });
+      let scrollTimer;
+      track.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(updateActiveDot, 60);
+      });
+      updateActiveDot();
+    });
+  })();
+
   setInterval(() => {
     document.querySelectorAll('.countdown-timer').forEach(el => {
       const endTime = new Date(el.dataset.endtime).getTime();
@@ -220,18 +266,21 @@
       const dotsWrap = carousel.parentElement.querySelector('[data-carousel-dots]');
       if (!track) return;
 
-      function pageCount() {
-        if (!track.clientWidth) return 1;
-        return Math.max(1, Math.round(track.scrollWidth / track.clientWidth));
-      }
-      function currentPage() {
-        if (!track.clientWidth) return 0;
-        return Math.round(track.scrollLeft / track.clientWidth);
+      const items = track.firstElementChild ? Array.from(track.firstElementChild.children) : [];
+
+      function currentItem() {
+        if (!items.length) return 0;
+        const trackLeft = track.getBoundingClientRect().left;
+        let active = 0;
+        items.forEach((item, index) => {
+          if (item.getBoundingClientRect().left <= trackLeft + 2) active = index;
+        });
+        return active;
       }
       function updateDots() {
         if (!dotsWrap) return;
         const dots = dotsWrap.querySelectorAll('.carousel-dot');
-        const active = currentPage();
+        const active = currentItem();
         dots.forEach((dot, i) => {
           dot.classList.toggle('opacity-100', i === active);
           dot.classList.toggle('w-4', i === active);
@@ -241,16 +290,24 @@
       }
       function buildDots() {
         if (!dotsWrap) return;
-        const pages = pageCount();
         dotsWrap.innerHTML = '';
-        if (pages <= 1) { dotsWrap.classList.add('hidden'); return; }
+        if (!items.length || track.scrollWidth <= track.clientWidth + 1) {
+          dotsWrap.classList.add('hidden');
+          return;
+        }
         dotsWrap.classList.remove('hidden');
-        for (let i = 0; i < pages; i++) {
+        for (let i = 0; i < items.length; i++) {
           const dot = document.createElement('button');
           dot.type = 'button';
-          dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+          dot.setAttribute('aria-label', `Go to product ${i + 1}`);
           dot.className = 'carousel-dot h-1.5 w-1.5 rounded-full bg-current opacity-25 transition-all duration-200';
-          dot.addEventListener('click', () => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' }));
+          dot.addEventListener('click', () => {
+            const firstLeft = items[0].getBoundingClientRect().left;
+            const itemLeft = items[i].getBoundingClientRect().left;
+            const target = track.scrollLeft + itemLeft - firstLeft;
+            const maxScroll = track.scrollWidth - track.clientWidth;
+            track.scrollTo({ left: Math.max(0, Math.min(target, maxScroll)), behavior: 'smooth' });
+          });
           dotsWrap.appendChild(dot);
         }
         updateDots();

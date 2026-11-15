@@ -7,8 +7,8 @@
 {% block content %}
 <!-- Category Hero Banner -->
 {% if category.banner %}
-<div class="relative h-40 sm:h-56 w-full overflow-hidden">
-  <img src="{{ category.banner.url }}" alt="{{ category.name }}" class="w-full h-full object-cover">
+<div class="relative w-full overflow-hidden">
+  <img src="{{ category.banner.url }}" alt="{{ category.name }}" class="block w-full h-auto">
   <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end">
     <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 pb-5">
       <h1 class="text-xl sm:text-3xl font-black text-white">{{ category.name }}</h1>
