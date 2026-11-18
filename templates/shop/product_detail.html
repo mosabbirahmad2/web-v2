@@ -1,11 +1,49 @@
 {% extends 'base.html' %}
 {% load shop_extras %}
 {% block title %}{{ product.meta_title|default:product.name }} - {{ site_setting.site_name }}{% endblock %}
-{% block meta_description %}{{ product.meta_description|default:product.description|truncatechars:160 }}{% endblock %}
+{% block meta_description %}{{ product.meta_description|default:product.description|default:site_setting.meta_description|truncatechars:160 }}{% endblock %}
+{% block canonical %}<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'product_detail' product.pk %}">{% endblock %}
+
+{% block og_tags %}
+<meta property="og:site_name" content="{{ site_setting.site_name }}">
+<meta property="og:type" content="product">
+<meta property="og:title" content="{{ product.meta_title|default:product.name }} - {{ site_setting.site_name }}">
+<meta property="og:description" content="{{ product.meta_description|default:product.description|default:site_setting.meta_description|truncatechars:160 }}">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{% url 'product_detail' product.pk %}">
+<meta property="product:price:amount" content="{{ product.effective_price }}">
+<meta property="product:price:currency" content="BDT">
+{% if product.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}">
+{% elif site_setting.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_setting.logo.url }}">{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+{% if product.meta_keywords %}<meta name="keywords" content="{{ product.meta_keywords }}">{% endif %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "{{ product.name|escapejs }}",
+  "sku": "{{ product.product_code|default:''|escapejs }}",
+  "description": "{{ product.meta_description|default:product.description|truncatechars:160|escapejs }}",
+  {% if product.image %}"image": ["{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}"],{% endif %}
+  "offers": {
+    "@type": "Offer",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'product_detail' product.pk %}",
+    "priceCurrency": "BDT",
+    "price": "{{ product.effective_price }}",
+    "availability": "{% if product.stock > 0 %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}"
+  }{% if product.avg_rating %},
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "{{ product.avg_rating }}",
+    "reviewCount": "{{ product.reviews_count }}"
+  }{% endif %}
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-6 sm:py-8">
-  <!-- Breadcrumb -->
   <div class="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-6 flex-wrap">
     <a href="/" class="hover:text-amber-900 transition">Home</a>
     <span>/</span>
@@ -16,13 +54,16 @@
     <span class="text-amber-900 font-bold truncate max-w-xs">{{ product.name }}</span>
   </div>
 
-  <!-- Product Core Container -->
   <div class="bg-white rounded-3xl p-4 sm:p-10 border border-slate-200/90 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
 
-    <!-- Left: Images Gallery -->
     <div class="space-y-4">
       <div class="aspect-square bg-slate-50 rounded-3xl overflow-hidden border border-slate-100 flex items-center justify-center p-4 relative shadow-inner">
-        <img id="mainDisplayImage" src="{% if product.image %}{{ product.image.url }}{% endif %}" alt="{{ product.name }}" class="max-h-full max-w-full object-contain transition-all duration-300">
+        {% if product.image %}
+        <img id="mainDisplayImage" src="{{ product.image.url }}" alt="{{ product.name }}" class="max-h-full max-w-full object-contain transition-all duration-300">
+        {% else %}
+        <img id="mainDisplayImage" src="" alt="{{ product.name }}" class="hidden max-h-full max-w-full object-contain transition-all duration-300">
+        <i id="mainImagePlaceholder" class="fa-solid fa-box text-slate-300 text-4xl"></i>
+        {% endif %}
         {% if product.discount_percent > 0 %}
         <span class="absolute top-4 left-4 bg-rose-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow">
           {{ product.discount_percent }}% OFF
@@ -33,23 +74,22 @@
       <div class="flex gap-3 overflow-x-auto pb-2">
         {% if product.image %}
         <div onclick="swapMainImage('{{ product.image.url }}', this)" class="gallery-thumb w-16 h-16 rounded-2xl border-2 border-amber-900 cursor-pointer overflow-hidden p-1 shrink-0 bg-slate-50">
-          <img src="{{ product.image.url }}" class="w-full h-full object-contain">
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-full h-full object-contain">
         </div>
         {% endif %}
         {% for img in product.images.all %}
         <div onclick="swapMainImage('{{ img.image.url }}', this)" class="gallery-thumb w-16 h-16 rounded-2xl border-2 border-transparent hover:border-slate-300 cursor-pointer overflow-hidden p-1 shrink-0 bg-slate-50">
-          <img src="{{ img.image.url }}" class="w-full h-full object-contain">
+          <img src="{{ img.image.url }}" alt="{{ product.name }}" class="w-full h-full object-contain">
         </div>
         {% endfor %}
       </div>
     </div>
 
-    <!-- Right: Product Details, Stock & Actions -->
     <div class="space-y-5 flex flex-col justify-between">
       <div class="space-y-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="inline-block bg-slate-100 text-slate-700 text-xs font-mono font-bold px-3 py-1 rounded-full border border-slate-200">
-            Code: {{ product.product_code|default:"FT-101" }}
+            Code: {{ product.product_code|default:"N/A" }}
           </span>
           {% if product.badge_tag %}
           <span class="inline-block bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
@@ -88,16 +128,14 @@
           {% endif %}
         </div>
 
-        <!-- Price Display -->
         <div class="flex items-center gap-3 pt-2 flex-wrap">
           <span class="text-2xl sm:text-3xl font-black text-slate-900">৳ {{ product.effective_price|clean_price }}</span>
-          {% if product.discount_price and product.discount_price < product.price %}
+          {% if product.discount_price is not None and product.discount_price < product.price %}
           <span class="text-base text-slate-400 line-through">৳ {{ product.price|clean_price }}</span>
           <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-md">Save ৳{{ product.save_amount|clean_price }}</span>
           {% endif %}
         </div>
 
-        <!-- Quantity Selector -->
         {% if product.stock > 0 %}
         <div class="pt-1">
           <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Quantity</label>
@@ -109,7 +147,6 @@
         </div>
         {% endif %}
 
-        <!-- Delivery & Trust Card -->
         <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-2.5 text-xs">
           <div class="flex items-center justify-between font-semibold text-slate-700">
             <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck text-amber-900"></i> Inside Dhaka</span>
@@ -122,21 +159,19 @@
           <div class="flex items-center gap-1.5 font-semibold text-emerald-700">
             <i class="fa-solid fa-money-bill-wave"></i> Cash on Delivery Available
           </div>
-          {% if site_setting.whatsapp_number %}
-          <a href="https://wa.me/{{ site_setting.whatsapp_number }}?text={{ product.name|urlencode }}%20inquiry" target="_blank" rel="noopener" class="flex items-center gap-1.5 font-bold text-amber-900 hover:underline">
+          {% if site_setting.whatsapp_link_number %}
+          <a href="https://wa.me/{{ site_setting.whatsapp_link_number }}?text={{ product.name|urlencode }}%20inquiry" target="_blank" rel="noopener" class="flex items-center gap-1.5 font-bold text-amber-900 hover:underline">
             <i class="fa-brands fa-whatsapp"></i> Ask about this product on WhatsApp
           </a>
           {% endif %}
         </div>
 
-        <!-- Description -->
         <div class="pt-4 border-t text-xs text-slate-600 leading-relaxed space-y-2">
           <h4 class="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Product Description</h4>
           <p class="whitespace-pre-line">{{ product.description|default:"Crafted with highest quality materials for durability and style." }}</p>
         </div>
       </div>
 
-      <!-- Action Buttons -->
       <div class="space-y-3 pt-6 border-t">
         <div class="flex gap-3 sm:gap-4">
           {% if product.stock > 0 %}
@@ -147,9 +182,11 @@
             class="flex-1 min-h-[46px] bg-slate-900 hover:bg-black text-white py-3.5 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm">
             <i class="fa-solid fa-basket-shopping"></i> <span>Add to Bag</span>
           </button>
+          {% if site_setting.enable_buy_now %}
           <button type="button" onclick="buyNowFromDetail()" class="flex-1 min-h-[46px] bg-theme hover:opacity-95 text-white py-3.5 rounded-2xl font-bold text-xs transition shadow-lg">
             Buy Now
           </button>
+          {% endif %}
           {% else %}
           <button disabled class="w-full bg-slate-200 text-slate-400 py-3.5 rounded-2xl font-bold text-xs cursor-not-allowed">
             Item Currently Out of Stock
@@ -160,7 +197,6 @@
     </div>
   </div>
 
-  <!-- Reviews & Rating Form Section -->
   <div class="mt-10 sm:mt-12 bg-white rounded-3xl p-5 sm:p-8 border border-slate-200/90 shadow-sm space-y-8">
     <div class="flex justify-between items-center border-b pb-4 flex-wrap gap-2">
       <h3 class="text-lg font-black text-slate-900">Verified Customer Reviews ({{ reviews.count }})</h3>
@@ -217,7 +253,6 @@
     </div>
   </div>
 
-  <!-- Related Products -->
   {% if related_products %}
   <div class="mt-12 sm:mt-14 space-y-6">
     <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">You may also like</h3>
@@ -234,13 +269,21 @@
 {% block extra_js %}
 <script>
   function swapMainImage(src, thumbElement) {
-    document.getElementById('mainDisplayImage').src = src;
+    const mainImg = document.getElementById('mainDisplayImage');
+    const placeholder = document.getElementById('mainImagePlaceholder');
+    if (mainImg) {
+      mainImg.src = src;
+      mainImg.classList.remove('hidden');
+    }
+    if (placeholder) placeholder.classList.add('hidden');
     document.querySelectorAll('.gallery-thumb').forEach(el => {
       el.classList.remove('border-amber-900');
       el.classList.add('border-transparent');
     });
-    thumbElement.classList.remove('border-transparent');
-    thumbElement.classList.add('border-amber-900');
+    if (thumbElement) {
+      thumbElement.classList.remove('border-transparent');
+      thumbElement.classList.add('border-amber-900');
+    }
   }
 
   const DETAIL_PRODUCT = {
@@ -255,7 +298,7 @@
   function changeDetailQty(delta) {
     const input = document.getElementById('detailQtyInput');
     if (!input) return;
-    let val = parseInt(input.value) + delta;
+    let val = parseInt(input.value, 10) + delta;
     if (val < 1) val = 1;
     if (DETAIL_PRODUCT.maxStock && val > DETAIL_PRODUCT.maxStock) val = DETAIL_PRODUCT.maxStock;
     input.value = val;
@@ -263,19 +306,13 @@
 
   function getDetailQty() {
     const input = document.getElementById('detailQtyInput');
-    return input ? (parseInt(input.value) || 1) : 1;
+    return input ? (parseInt(input.value, 10) || 1) : 1;
   }
 
   function addToBagFromDetail() {
     addToBag(DETAIL_PRODUCT.id, DETAIL_PRODUCT.name, DETAIL_PRODUCT.effectivePrice, DETAIL_PRODUCT.regularPrice, DETAIL_PRODUCT.image, DETAIL_PRODUCT.maxStock, getDetailQty());
   }
 
-  // BUG FIX: "Buy Now" used to call addToBag() unconditionally -- which, now
-  // that addToBag() refuses to duplicate an item already in the cart, meant
-  // Buy Now would silently do nothing for a product you'd already added.
-  // It now ensures the item is in the cart (adding it with the selected
-  // quantity only if it's not already there) without opening the drawer,
-  // then opens checkout directly either way.
   function buyNowFromDetail() {
     const id = String(DETAIL_PRODUCT.id);
     const alreadyInCart = cart.some(i => String(i.id) === id);
@@ -286,6 +323,3 @@
   }
 </script>
 {% endblock %}
-
-
-

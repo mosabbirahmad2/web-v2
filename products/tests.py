@@ -6,17 +6,19 @@ from decimal import Decimal
 from PIL import Image
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Category, Product, ProductImage, SiteSetting
+from .models import Category, Order, Product, ProductImage, ProductReview, ShowcaseSection, SiteSetting
 
 TEST_CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
+TEST_STATIC_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 
 def make_test_image_file(name="test.png", color=(255, 0, 0, 255), mode="RGBA", size=(120, 120)):
@@ -27,9 +29,10 @@ def make_test_image_file(name="test.png", color=(255, 0, 0, 255), mode="RGBA", s
     return SimpleUploadedFile(name, buf.read(), content_type="image/png")
 
 
-@override_settings(CACHES=TEST_CACHES)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
 class RichOrderReceiptTests(TestCase):
     def setUp(self):
+        cache.clear()
         SiteSetting.objects.get_or_create(pk=1)
         self.category = Category.objects.create(name="Key Rings")
         self.product_a = Product.objects.create(
@@ -80,7 +83,7 @@ class RichOrderReceiptTests(TestCase):
         self.assertEqual(data['thana'], 'Mirpur')
         self.assertEqual(data['shipping_address'], 'House 1, Road 2')
         self.assertEqual(data['delivery_zone'], 'Inside Dhaka')
-        self.assertEqual(data['estimated_delivery'], "1–2 Business Days")
+        self.assertEqual(data['estimated_delivery'], "1\u20132 Business Days")
 
     def test_receipt_estimated_delivery_outside_dhaka(self):
         res = self.client.post(
@@ -93,7 +96,7 @@ class RichOrderReceiptTests(TestCase):
         )
         data = res.json()
         self.assertEqual(data['delivery_zone'], 'Outside Dhaka')
-        self.assertEqual(data['estimated_delivery'], "2–4 Business Days")
+        self.assertEqual(data['estimated_delivery'], "2\u20134 Business Days")
 
     def test_receipt_price_breakdown_math(self):
         res = self._place_order()
@@ -121,7 +124,7 @@ class RichOrderReceiptTests(TestCase):
         res = self.client.post(
             reverse('place_order_api'),
             data=json.dumps({
-                'name': 'A', 'phone': '019', 'district': 'Dhaka', 'address': 'X',
+                'name': 'A', 'phone': '01999999999', 'district': 'Dhaka', 'address': 'X',
                 'items': [{'id': 999999, 'qty': 1}],
             }),
             content_type='application/json',
@@ -132,9 +135,10 @@ class RichOrderReceiptTests(TestCase):
         self.assertTrue(data.get('invalid_items'))
 
 
-@override_settings(CACHES=TEST_CACHES)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
 class CategoryPageSortFilterCountTests(TestCase):
     def setUp(self):
+        cache.clear()
         SiteSetting.objects.get_or_create(pk=1)
         self.parent = Category.objects.create(name="Key Ring VV")
         self.sub = Category.objects.create(name="kskashi", parent=self.parent)
@@ -200,7 +204,7 @@ class CategoryPageSortFilterCountTests(TestCase):
         self.assertNotIn('page=', qs)
 
 
-@override_settings(CACHES=TEST_CACHES)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
 class FaviconAndDevToolsTests(TestCase):
     def test_favicon_returns_200_not_404(self):
         res = self.client.get('/favicon.ico')
@@ -213,9 +217,10 @@ class FaviconAndDevToolsTests(TestCase):
         self.assertEqual(res.json(), {})
 
 
-@override_settings(CACHES=TEST_CACHES)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
 class AdminInPlaceImageUpdateTests(TestCase):
     def setUp(self):
+        cache.clear()
         self._tmp = tempfile.TemporaryDirectory()
         self.override = override_settings(MEDIA_ROOT=self._tmp.name)
         self.override.enable()
@@ -323,9 +328,10 @@ class AdminInPlaceImageUpdateTests(TestCase):
         self.assertEqual(res.status_code, 400)
 
 
-@override_settings(CACHES=TEST_CACHES)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
 class PageRenderSmokeTests(TestCase):
     def setUp(self):
+        cache.clear()
         SiteSetting.objects.get_or_create(pk=1)
         self.category = Category.objects.create(name="Accessories")
         self.product = Product.objects.create(
@@ -347,3 +353,107 @@ class PageRenderSmokeTests(TestCase):
     def test_robots_txt_renders(self):
         res = self.client.get(reverse('robots_txt'))
         self.assertEqual(res.status_code, 200)
+
+
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
+class StorefrontAuditFixesTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.setting = SiteSetting.get_settings()
+        self.active_cat = Category.objects.create(name="Cases", is_active=True)
+        self.inactive_cat = Category.objects.create(name="Hidden Cat", is_active=False)
+        self.active_prod = Product.objects.create(
+            name="Leather Case", price=Decimal('350.00'), stock=10, category=self.active_cat, is_active=True
+        )
+        self.inactive_prod = Product.objects.create(
+            name="Disabled Case", price=Decimal('250.00'), stock=10, category=self.active_cat, is_active=False
+        )
+
+    def test_inactive_category_returns_404(self):
+        res = self.client.get(reverse('shop_category', args=[self.inactive_cat.slug]))
+        self.assertEqual(res.status_code, 404)
+
+    def test_inactive_product_returns_404(self):
+        res = self.client.get(reverse('product_detail', args=[self.inactive_prod.pk]))
+        self.assertEqual(res.status_code, 404)
+
+    def test_showcase_hides_inactive_products_on_homepage(self):
+        sec = ShowcaseSection.objects.create(title="Flash Picks", is_active=True)
+        sec.products.add(self.active_prod, self.inactive_prod)
+        res = self.client.get(reverse('home'))
+        self.assertContains(res, "Leather Case")
+        self.assertNotContains(res, "Disabled Case")
+
+    def test_review_and_order_do_not_double_escape_quotes_or_ampersands(self):
+        self.client.post(reverse('add_product_review', args=[self.active_prod.pk]), {
+            'name': "O'Brien & Co",
+            'rating': 'invalid_rating',
+            'comment': "It's sleek & sturdy!",
+        })
+        review = ProductReview.objects.get(product=self.active_prod)
+        self.assertEqual(review.customer_name, "O'Brien & Co")
+        self.assertEqual(review.comment, "It's sleek & sturdy!")
+        self.assertEqual(review.rating, 5)
+
+        res = self.client.post(
+            reverse('place_order_api'),
+            data=json.dumps({
+                'name': "O'Brien & Son",
+                'phone': '01999999999',
+                'district': 'Dhaka',
+                'address': "House #5, 'Green' Road & Lane",
+                'items': [{'id': self.active_prod.id, 'qty': 1}],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(res.status_code, 200)
+        order = Order.objects.latest('id')
+        self.assertEqual(order.customer_name, "O'Brien & Son")
+        self.assertEqual(order.shipping_address, "House #5, 'Green' Road & Lane")
+
+    def test_whatsapp_link_number_normalizes_bd_local_number(self):
+        self.setting.whatsapp_number = "01999999999"
+        self.assertEqual(self.setting.whatsapp_link_number, "8801999999999")
+        self.setting.whatsapp_number = "+880 1711-000000"
+        self.assertEqual(self.setting.whatsapp_link_number, "8801711000000")
+
+    def test_category_page_has_single_meta_description_tag(self):
+        res = self.client.get(reverse('shop_category', args=[self.active_cat.slug]))
+        html = res.content.decode('utf-8')
+        self.assertEqual(html.count('<meta name="description"'), 1)
+
+    def test_product_detail_respects_enable_buy_now_setting(self):
+        self.setting.enable_buy_now = False
+        self.setting.save()
+        res = self.client.get(reverse('product_detail', args=[self.active_prod.pk]))
+        self.assertNotContains(res, 'onclick="buyNowFromDetail()"')
+
+        self.setting.enable_buy_now = True
+        self.setting.save()
+        res2 = self.client.get(reverse('product_detail', args=[self.active_prod.pk]))
+        self.assertContains(res2, 'onclick="buyNowFromDetail()"')
+
+    def test_invalid_phone_returns_400_on_checkout(self):
+        res = self.client.post(
+            reverse('place_order_api'),
+            data=json.dumps({
+                'name': 'Tester',
+                'phone': '123',
+                'district': 'Dhaka',
+                'address': 'Road 1',
+                'items': [{'id': self.active_prod.id, 'qty': 1}],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()['status'], 'error')
+
+    def test_homepage_carousel_caps_at_8_products_while_preserving_total_count(self):
+        for i in range(10):
+            Product.objects.create(
+                name=f"Extra Ring {i}", price=Decimal('100.00'), stock=5, category=self.active_cat
+            )
+        res = self.client.get(reverse('home'))
+        cat_in_ctx = next(c for c in res.context['categories'] if c.pk == self.active_cat.pk)
+        self.assertEqual(len(cat_in_ctx.carousel_products), 8)
+        self.assertEqual(cat_in_ctx.home_product_count, 11)

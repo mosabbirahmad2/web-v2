@@ -18,7 +18,7 @@
       {% endif %}
     </a>
 
-    <div class="text-[10px] text-slate-400 font-mono font-bold tracking-wide">SKU: {{ product.product_code|default:"FT-101" }}</div>
+    <div class="text-[10px] text-slate-400 font-mono font-bold tracking-wide">SKU: {{ product.product_code|default:"N/A" }}</div>
     <a href="{% url 'product_detail' product.pk %}" class="font-bold text-xs sm:text-[13px] text-slate-900 line-clamp-2 hover:text-amber-900 block mt-0.5 leading-snug min-h-[2.4em]">
       {{ product.name }}
     </a>
@@ -48,7 +48,7 @@
   <div class="mt-2.5">
     <div class="flex items-baseline gap-2 mb-2.5 flex-wrap">
       <span class="text-base sm:text-lg font-black text-slate-900">&#2547; {{ product.effective_price|clean_price }}</span>
-      {% if product.discount_price and product.discount_price < product.price %}
+      {% if product.discount_price is not None and product.discount_price < product.price %}
       <span class="text-xs text-slate-400 line-through">&#2547;{{ product.price|clean_price }}</span>
       {% endif %}
     </div>

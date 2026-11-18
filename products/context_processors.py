@@ -1,5 +1,7 @@
 from django.core.cache import cache
+from django.db.models import Prefetch
 from .models import SiteSetting, Category
+
 
 def site_settings_processor(request):
     site_setting = cache.get('global_site_settings')
@@ -9,16 +11,19 @@ def site_settings_processor(request):
 
     global_categories = cache.get('global_active_categories')
     if global_categories is None:
-        global_categories = list(Category.objects.filter(is_active=True, parent__isnull=True).prefetch_related('subcategories'))
+        active_subs = Prefetch(
+            'subcategories',
+            queryset=Category.objects.filter(is_active=True).order_by('order', 'name'),
+            to_attr='active_subcategories',
+        )
+        global_categories = list(
+            Category.objects.filter(is_active=True, parent__isnull=True)
+            .prefetch_related(active_subs)
+            .order_by('order', 'name')
+        )
         cache.set('global_active_categories', global_categories, timeout=300)
 
     return {
         'site_setting': site_setting,
-        'global_categories': global_categories
+        'global_categories': global_categories,
     }
-
-
-
-
-
-

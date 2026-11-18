@@ -11,10 +11,6 @@
   }
 }
 
-/* Announcement ticker: continuous-loop marquee (text duplicated in markup)
-   instead of the old single-pass "100% -> -100%" animation, which left a
-   visible dead gap where no text was on screen and looked broken on narrow
-   mobile widths. Paused on hover via .marquee-wrap:hover in base.html. */
 @keyframes marquee {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }

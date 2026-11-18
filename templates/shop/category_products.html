@@ -1,19 +1,28 @@
 {% extends 'base.html' %}
 {% block title %}{{ category.meta_title|default:category.name }} - {{ site_setting.site_name }}{% endblock %}
+{% block meta_description %}{{ category.meta_description|default:category.short_description|default:site_setting.meta_description }}{% endblock %}
+{% block canonical %}<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'shop_category' category.slug %}">{% endblock %}
+{% block og_tags %}
+<meta property="og:site_name" content="{{ site_setting.site_name }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ category.meta_title|default:category.name }} - {{ site_setting.site_name }}">
+<meta property="og:description" content="{{ category.meta_description|default:category.short_description|default:site_setting.meta_description }}">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{% url 'shop_category' category.slug %}">
+{% if category.banner %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ category.banner.url }}">
+{% elif category.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ category.image.url }}">{% endif %}
+{% endblock %}
 {% block extra_head %}
-<meta name="description" content="{{ category.meta_description|default:category.short_description|default:site_setting.meta_description }}">
 {% if category.meta_keywords %}<meta name="keywords" content="{{ category.meta_keywords }}">{% endif %}
 {% endblock %}
 {% block content %}
-<!-- Category Hero Banner -->
 {% if category.banner %}
 <div class="relative w-full overflow-hidden">
-  <img src="{{ category.banner.url }}" alt="{{ category.name }}" class="block w-full h-auto">
+  <img src="{{ category.banner.url }}" alt="{{ category.name }}" class="block w-full min-h-[150px] sm:min-h-0 object-cover">
   <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end">
-    <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 pb-5">
-      <h1 class="text-xl sm:text-3xl font-black text-white">{{ category.name }}</h1>
+    <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 pb-4 sm:pb-5">
+      <h1 class="text-xl sm:text-3xl font-black text-white line-clamp-1">{{ category.name }}</h1>
       {% if category.short_description %}
-      <p class="text-xs sm:text-sm text-white/80 mt-1 max-w-xl">{{ category.short_description }}</p>
+      <p class="text-xs sm:text-sm text-white/80 mt-1 max-w-xl line-clamp-2">{{ category.short_description }}</p>
       {% endif %}
     </div>
   </div>
@@ -22,7 +31,6 @@
 
 <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-6 sm:py-8">
   <div class="mb-6">
-    <!-- Breadcrumbs -->
     <nav class="text-xs font-bold text-slate-500 flex items-center gap-1.5 flex-wrap mb-3">
       <a href="/" class="hover:text-amber-900 transition">Home</a>
       {% if category.parent %}
@@ -47,21 +55,19 @@
     {% endif %}
   </div>
 
-  <!-- Sub-category filter chips with accurate item counts -->
   {% if subcategories %}
   <div class="flex items-center gap-2 flex-wrap mb-6">
-    <a href="{% url 'shop_category' category.slug %}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if not selected_sub %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+    <a href="{% url 'shop_category' category.slug %}{% if filter_only_qs %}?{{ filter_only_qs }}{% endif %}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if not selected_sub %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
       All {{ category.name }} ({{ category.total_active_products }})
     </a>
     {% for sub in subcategories %}
-    <a href="?sub={{ sub.id }}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if selected_sub.id == sub.id %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+    <a href="?sub={{ sub.id }}{% if filter_only_qs %}&{{ filter_only_qs }}{% endif %}" class="px-4 py-1.5 rounded-full text-xs font-bold transition {% if selected_sub.id == sub.id %}bg-amber-900 text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
       {{ sub.name }} ({{ sub.active_product_count }})
     </a>
     {% endfor %}
   </div>
   {% endif %}
 
-  <!-- Sort & Filter Toolbar -->
   <form method="get" id="filterSortForm" class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white border border-slate-200 rounded-2xl p-3 sm:p-4">
     {% if selected_sub %}<input type="hidden" name="sub" value="{{ selected_sub.id }}">{% endif %}
     <label class="flex items-center gap-2 text-xs font-bold text-slate-700 min-h-[42px]">
@@ -87,7 +93,6 @@
     {% endfor %}
   </div>
 
-  <!-- Pagination Controls (preserves sub / sort / in_stock across pages) -->
   {% if products.has_other_pages %}
   <div class="mt-12 flex justify-between items-center text-xs text-slate-500 border-t pt-6">
     <span>Page {{ products.number }} of {{ products.paginator.num_pages }}</span>
@@ -103,6 +108,3 @@
   {% endif %}
 </div>
 {% endblock %}
-
-
-

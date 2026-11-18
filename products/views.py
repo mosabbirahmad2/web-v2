@@ -1,8 +1,10 @@
 import csv
+import ipaddress
 import json
 import os
+import re
 import uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 from functools import wraps
 
@@ -14,11 +16,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Sum, Q, Avg, F, Case, When, DecimalField, Value
+from django.db.models import Count, Sum, Q, Avg, F, Case, When, DecimalField, Value, Prefetch
 from django.db.models.functions import TruncDate, TruncHour
 from django.http import HttpResponse, JsonResponse, Http404
 from django.utils import timezone
-from django.utils.html import strip_tags, escape
+from django.utils.html import strip_tags
 from django.views.decorators.http import require_POST
 
 from .models import (
@@ -27,13 +29,39 @@ from .models import (
     AdminLoginAttempt, SearchQuery, UniqueVisitorLog
 )
 
+BOT_USER_AGENTS = (
+    'bot', 'crawl', 'spider', 'slurp', 'facebookexternalhit',
+    'whatsapp', 'curl', 'python-requests', 'lighthouse', 'pingdom'
+)
+
+
+def is_bot_request(request):
+    ua = (request.META.get('HTTP_USER_AGENT') or '').lower()
+    return bool(ua and any(b in ua for b in BOT_USER_AGENTS))
+
+
 def get_client_ip(request):
+    candidates = []
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded:
-        return x_forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+        candidates.append(x_forwarded.split(',')[0].strip())
+    if request.META.get('REMOTE_ADDR'):
+        candidates.append(request.META.get('REMOTE_ADDR').strip())
+    for cand in candidates:
+        try:
+            return str(ipaddress.ip_address(cand))
+        except ValueError:
+            continue
+    return '127.0.0.1'
 
-# Rate Limiter
+
+def with_rating_annotations(qs):
+    return qs.annotate(
+        _avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+        _reviews_count=Count('reviews', filter=Q(reviews__is_approved=True), distinct=True),
+    )
+
+
 def rate_limit(requests_per_minute=60):
     def decorator(view_func):
         @wraps(view_func)
@@ -48,7 +76,7 @@ def rate_limit(requests_per_minute=60):
         return _wrapped
     return decorator
 
-# --- AUTHENTICATION ---
+
 def admin_login_view(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('merchant_dashboard')
@@ -89,50 +117,76 @@ def admin_login_view(request):
 
     return render(request, 'admin_custom/login.html')
 
+
 def admin_logout_view(request):
     logout(request)
     return redirect('admin_login')
 
-# --- STOREFRONT VIEWS ---
+
 def home_view(request):
     ip = get_client_ip(request)
-    today = timezone.now().date()
-    UniqueVisitorLog.objects.get_or_create(ip_address=ip, date=today)
+    if not is_bot_request(request):
+        try:
+            UniqueVisitorLog.objects.get_or_create(ip_address=ip, date=timezone.now().date())
+        except Exception:
+            pass
 
-    categories = list(Category.objects.filter(is_active=True, parent__isnull=True).prefetch_related('subcategories'))
+    categories = list(
+        Category.objects.filter(is_active=True, parent__isnull=True)
+        .prefetch_related(
+            Prefetch(
+                'subcategories',
+                queryset=Category.objects.filter(is_active=True).order_by('order', 'name'),
+                to_attr='active_subcategories',
+            )
+        )
+        .order_by('order', 'name')
+    )
     category_ids = set()
+    subcategory_to_parent = {}
     for category in categories:
         category_ids.add(category.pk)
-        category_ids.update(subcategory.pk for subcategory in category.subcategories.all() if subcategory.is_active)
+        for subcategory in getattr(category, 'active_subcategories', []):
+            category_ids.add(subcategory.pk)
+            subcategory_to_parent[subcategory.pk] = category.pk
 
     category_products = Product.objects.filter(
         is_active=True, category_id__in=category_ids
     ).only('id', 'name', 'image', 'category_id').order_by('-created_at')
     products_by_category = {category.pk: [] for category in categories}
-    subcategory_to_parent = {
-        subcategory.pk: category.pk
-        for category in categories
-        for subcategory in category.subcategories.all()
-        if subcategory.is_active
-    }
     for product in category_products:
         parent_id = subcategory_to_parent.get(product.category_id, product.category_id)
         if parent_id in products_by_category:
             products_by_category[parent_id].append(product)
     for category in categories:
-        category.carousel_products = products_by_category[category.pk]
-        category.home_product_count = len(category.carousel_products)
-    showcase_sections = ShowcaseSection.objects.filter(is_active=True).prefetch_related('products__category')
-    valid_sections = [s for s in showcase_sections if not s.is_expired()]
+        full_list = products_by_category[category.pk]
+        category.carousel_products = full_list[:8]
+        category.home_product_count = len(full_list)
+
+    active_showcase_products = Prefetch(
+        'products',
+        queryset=with_rating_annotations(
+            Product.objects.filter(is_active=True).select_related('category')
+        ).order_by('-created_at'),
+    )
+    showcase_sections = ShowcaseSection.objects.filter(is_active=True).prefetch_related(active_showcase_products)
+    valid_sections = [s for s in showcase_sections if not s.is_expired() and len(s.products.all()) > 0]
 
     search_query = request.GET.get('q', '').strip()
-    products_list = Product.objects.filter(is_active=True).select_related('category').order_by('-created_at')
+    products_list = with_rating_annotations(
+        Product.objects.filter(is_active=True).select_related('category')
+    ).order_by('-created_at')
 
     if search_query:
+        if len(search_query) >= 2:
+            try:
+                SearchQuery.objects.create(query=search_query[:200], ip_address=ip)
+            except Exception:
+                pass
         products_list = products_list.filter(
-            Q(name__icontains=search_query) | 
-            Q(product_code__icontains=search_query) | 
-            Q(description__icontains=search_query)
+            Q(name__icontains=search_query)
+            | Q(product_code__icontains=search_query)
+            | Q(description__icontains=search_query)
         )
 
     paginator = Paginator(products_list, 20)
@@ -146,22 +200,17 @@ def home_view(request):
         'search_query': search_query,
     })
 
+
 def shop_category_view(request, slug):
-    category = get_object_or_404(Category, slug=slug)
-    # BUG FIX: subcategories existed in the data model (Category.parent) and
-    # were already being queried to pull in products, but the storefront never
-    # rendered them anywhere, so customers had no way to browse/filter by
-    # subcategory. We now pass the subcategory list + an optional ?sub=<id>
-    # filter to the template so filter chips can be rendered and used, with
-    # accurate per-chip item counts (e.g. "All (2)", "kskashi (1)").
+    category = get_object_or_404(Category, slug=slug, is_active=True)
     subcategories = category.subcategories.filter(is_active=True).annotate(
         active_product_count=Count('products', filter=Q(products__is_active=True), distinct=True)
     )
 
     selected_sub = None
     sub_filter = request.GET.get('sub', '').strip()
-    if sub_filter:
-        selected_sub = subcategories.filter(pk=sub_filter).first()
+    if sub_filter and sub_filter.isdigit():
+        selected_sub = subcategories.filter(pk=int(sub_filter)).first()
 
     if selected_sub:
         products = Product.objects.filter(category=selected_sub, is_active=True)
@@ -169,10 +218,9 @@ def shop_category_view(request, slug):
         sub_ids = subcategories.values_list('id', flat=True)
         products = Product.objects.filter(
             Q(category=category) | Q(category__id__in=sub_ids),
-            is_active=True
+            is_active=True,
         ).distinct()
 
-    # Sort & Filter toolbar: ?sort=newest|price_asc|price_desc|discount, ?in_stock=1
     in_stock_only = request.GET.get('in_stock') == '1'
     if in_stock_only:
         products = products.filter(stock__gt=0)
@@ -189,8 +237,9 @@ def shop_category_view(request, slug):
     )
 
     sort = request.GET.get('sort', 'newest')
-    products = products.select_related('category').annotate(
-        _eff_price=effective_price_expr, _disc_amt=discount_amount_expr
+    products = with_rating_annotations(products.select_related('category')).annotate(
+        _eff_price=effective_price_expr,
+        _disc_amt=discount_amount_expr,
     )
     if sort == 'price_asc':
         products = products.order_by('_eff_price', '-created_at')
@@ -205,11 +254,14 @@ def shop_category_view(request, slug):
     paginator = Paginator(products, 24)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
-    # Preserve sort/filter/sub query params across pagination links without
-    # the "page" key, so "Next"/"Previous" don't reset the user's sort/filter.
     pagination_qs = request.GET.copy()
     pagination_qs.pop('page', None)
     pagination_qs = pagination_qs.urlencode()
+
+    filter_only_qs = request.GET.copy()
+    filter_only_qs.pop('page', None)
+    filter_only_qs.pop('sub', None)
+    filter_only_qs = filter_only_qs.urlencode()
 
     return render(request, 'shop/category_products.html', {
         'category': category,
@@ -219,21 +271,22 @@ def shop_category_view(request, slug):
         'current_sort': sort,
         'in_stock_only': in_stock_only,
         'pagination_qs': pagination_qs,
+        'filter_only_qs': filter_only_qs,
     })
 
+
 def favicon_view(request):
-    # BUG FIX: /favicon.ico returned 404 (no favicon file/route existed at
-    # all). Served directly here -- rather than relying on static-file
-    # collection/manifest hashing -- so it works identically whether DEBUG
-    # is True or False, with zero extra deploy steps.
     favicon_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'favicon.svg')
     try:
         with open(favicon_path, 'rb') as f:
             return HttpResponse(f.read(), content_type='image/svg+xml')
     except FileNotFoundError:
         raise Http404
+
+
 def chrome_devtools_json_view(request):
     return JsonResponse({})
+
 
 def robots_txt_view(request):
     content = (
@@ -246,55 +299,65 @@ def robots_txt_view(request):
     )
     return HttpResponse(content, content_type="text/plain")
 
+
 def product_detail_view(request, pk):
     product = get_object_or_404(
-        Product.objects.select_related('category').prefetch_related('images', 'reviews'), 
-        pk=pk
+        with_rating_annotations(
+            Product.objects.select_related('category').prefetch_related('images', 'reviews')
+        ),
+        pk=pk,
+        is_active=True,
     )
-    product.views_count += 1
-    product.save(update_fields=['views_count'])
 
-    # BUG FIX: the analytics dashboard (merchant_analytics) counts
-    # AnalyticsEvent(event_type='product_view') to build the funnel chart, but
-    # nothing ever created that event, so "Product Views" always showed 0.
-    try:
-        AnalyticsEvent.objects.create(
-            ip_address=get_client_ip(request),
-            path=request.path[:250],
-            event_type='product_view',
-            product=product
-        )
-    except Exception:
-        pass
+    if not is_bot_request(request):
+        Product.objects.filter(pk=product.pk).update(views_count=F('views_count') + 1)
+        product.views_count += 1
+        try:
+            AnalyticsEvent.objects.create(
+                ip_address=get_client_ip(request),
+                path=request.path[:250],
+                event_type='product_view',
+                product=product,
+            )
+        except Exception:
+            pass
 
-    related_products = Product.objects.filter(
-        category=product.category, is_active=True
-    ).exclude(pk=product.pk)[:5]
+    related_qs = Product.objects.filter(is_active=True).exclude(pk=product.pk).select_related('category')
+    if product.category_id:
+        related_qs = related_qs.filter(category=product.category)
+    related_products = with_rating_annotations(related_qs).order_by('-created_at')[:5]
 
     return render(request, 'shop/product_detail.html', {
         'product': product,
         'related_products': related_products,
-        'reviews': product.reviews.filter(is_approved=True)
+        'reviews': product.reviews.filter(is_approved=True),
     })
 
+
 @require_POST
+@rate_limit(requests_per_minute=10)
 def add_product_review(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    name = escape(strip_tags(request.POST.get('name', 'Anonymous').strip()))[:100]
-    rating = int(request.POST.get('rating', 5))
+    product = get_object_or_404(Product, pk=pk, is_active=True)
+    name = strip_tags(request.POST.get('name', 'Anonymous')).strip()[:100]
+    try:
+        rating = int(request.POST.get('rating', 5))
+    except (ValueError, TypeError):
+        rating = 5
     if rating < 1 or rating > 5:
         rating = 5
-    raw_comment = request.POST.get('comment', '').strip()
-    comment = escape(strip_tags(raw_comment))
+    comment = strip_tags(request.POST.get('comment', '')).strip()[:1000]
 
     if comment:
         ProductReview.objects.create(
-            product=product, customer_name=name or 'Anonymous', rating=rating, comment=comment
+            product=product,
+            customer_name=name or 'Anonymous',
+            rating=rating,
+            comment=comment,
         )
         messages.success(request, 'Thank you! Your review has been added.')
     return redirect('product_detail', pk=pk)
 
-# --- SEARCH API WITH SKU MATCHING ---
+
 @rate_limit(requests_per_minute=45)
 def search_api(request):
     q = request.GET.get('q', '').strip()
@@ -308,7 +371,7 @@ def search_api(request):
 
     matches = Product.objects.filter(
         Q(name__icontains=q) | Q(product_code__icontains=q) | Q(description__icontains=q),
-        is_active=True
+        is_active=True,
     ).select_related('category')[:8]
 
     data = []
@@ -318,41 +381,46 @@ def search_api(request):
             'name': p.name,
             'code': p.product_code or '',
             'price': str(p.price),
-            'discount_price': str(p.discount_price) if p.discount_price else None,
+            'discount_price': str(p.discount_price) if p.discount_price is not None else None,
             'effective_price': str(p.effective_price),
             'discount_percent': p.discount_percent,
             'stock': p.stock,
             'image': p.image.url if p.image else None,
-            'url': f'/product/{p.id}/'
+            'url': f'/product/{p.id}/',
         })
 
     return JsonResponse({'results': data})
 
-# --- PROMO CODE VALIDATION API ---
+
 @require_POST
 @rate_limit(requests_per_minute=20)
 def apply_promo_api(request):
     try:
         data = json.loads(request.body)
-        code = data.get('code', '').strip().upper()
+        code = str(data.get('code', '')).strip().upper()
         items = data.get('items', [])
 
         promo = PromoCode.objects.filter(code=code).first()
         if not promo:
             return JsonResponse({'status': 'error', 'message': 'Invalid promo code!'}, status=400)
 
-        # Recalculate subtotal server-side using each product's effective_price
         calculated_subtotal = Decimal('0.00')
         if items and isinstance(items, list):
             for item in items:
-                p_id = item.get('id')
-                qty = int(item.get('qty', 1))
+                try:
+                    p_id = int(item.get('id'))
+                    qty = int(item.get('qty', 1))
+                except (ValueError, TypeError):
+                    continue
                 if qty > 0:
                     prod = Product.objects.filter(id=p_id, is_active=True).first()
                     if prod:
                         calculated_subtotal += (prod.effective_price * qty)
         else:
-            calculated_subtotal = Decimal(str(data.get('subtotal', 0)))
+            try:
+                calculated_subtotal = Decimal(str(data.get('subtotal', 0)))
+            except (InvalidOperation, ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': 'Invalid order subtotal.'}, status=400)
 
         is_valid, msg = promo.is_valid(subtotal=calculated_subtotal)
         if not is_valid:
@@ -363,14 +431,16 @@ def apply_promo_api(request):
             'status': 'success',
             'code': promo.code,
             'discount': float(discount),
-            'new_total': float(max(Decimal('0.00'), calculated_subtotal - discount))
+            'new_total': float(max(Decimal('0.00'), calculated_subtotal - discount)),
         })
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request payload.'}, status=400)
+
 
 @require_POST
 @rate_limit(requests_per_minute=100)
 def log_event_api(request):
+    allowed_events = {choice[0] for choice in AnalyticsEvent.EVENT_TYPES}
     try:
         data = json.loads(request.body)
         event_type = data.get('event_type')
@@ -378,20 +448,26 @@ def log_event_api(request):
         query = data.get('query')
 
         if query:
-            SearchQuery.objects.create(query=query.strip()[:200], ip_address=get_client_ip(request))
+            SearchQuery.objects.create(query=str(query).strip()[:200], ip_address=get_client_ip(request))
 
-        product = Product.objects.filter(id=product_id).first() if product_id else None
-        AnalyticsEvent.objects.create(
-            ip_address=get_client_ip(request),
-            path=request.path[:250],
-            event_type=event_type,
-            product=product
-        )
+        if event_type in allowed_events:
+            product = None
+            if product_id is not None:
+                try:
+                    product = Product.objects.filter(id=int(product_id)).first()
+                except (ValueError, TypeError):
+                    product = None
+            AnalyticsEvent.objects.create(
+                ip_address=get_client_ip(request),
+                path=request.path[:250],
+                event_type=event_type,
+                product=product,
+            )
         return JsonResponse({'status': 'ok'})
     except Exception:
         return JsonResponse({'status': 'ok'})
 
-# --- CHECKOUT API (CLEANS INVALID ITEMS, ENFORCES EFFECTIVE_PRICE) ---
+
 @require_POST
 def place_order_api(request):
     ip = get_client_ip(request)
@@ -401,35 +477,49 @@ def place_order_api(request):
 
     try:
         data = json.loads(request.body)
-        name = escape(strip_tags(data.get('name', '').strip()))
-        phone = escape(strip_tags(data.get('phone', '').strip()))
-        district = escape(strip_tags(data.get('district', 'Dhaka').strip()))
-        thana = escape(strip_tags(data.get('thana', '').strip()))
-        address = escape(strip_tags(data.get('address', '').strip()))
-        promo_code_str = data.get('promo_code', '').strip().upper()
-        items = data.get('items', [])
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
 
-        if not name or not phone or not address or not items:
-            return JsonResponse({'status': 'error', 'message': 'Please fill out all required delivery fields!'}, status=400)
+    name = strip_tags(str(data.get('name', ''))).strip()[:120]
+    phone = strip_tags(str(data.get('phone', ''))).strip()[:25]
+    district = strip_tags(str(data.get('district', 'Dhaka'))).strip()[:80] or 'Dhaka'
+    thana = strip_tags(str(data.get('thana', ''))).strip()[:80]
+    address = strip_tags(str(data.get('address', ''))).strip()
+    promo_code_str = str(data.get('promo_code', '')).strip().upper()
+    items = data.get('items', [])
 
-        setting = SiteSetting.get_settings()
-        is_dhaka = (district.lower() == 'dhaka')
-        delivery_fee = setting.delivery_fee_dhaka if is_dhaka else setting.delivery_fee_outside
+    if not name or not phone or not address or not isinstance(items, list) or not items:
+        return JsonResponse({'status': 'error', 'message': 'Please fill out all required delivery fields!'}, status=400)
 
+    phone_digits = re.sub(r'\D', '', phone)
+    if len(phone_digits) < 10 or len(phone_digits) > 15:
+        return JsonResponse({'status': 'error', 'message': 'Please enter a valid mobile number (10-15 digits).'}, status=400)
+
+    setting = SiteSetting.get_settings()
+    is_dhaka = (district.lower() == 'dhaka')
+    delivery_fee = setting.delivery_fee_dhaka if is_dhaka else setting.delivery_fee_outside
+
+    try:
         with transaction.atomic():
             subtotal = Decimal('0.00')
             validated_items = []
-            invalid_product_names = []
+            invalid_product_ids = []
 
             for item in items:
-                prod_id = item.get('id')
-                qty = int(item.get('qty', 1))
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    prod_id = int(item.get('id'))
+                    qty = int(item.get('qty', 1))
+                except (ValueError, TypeError):
+                    return JsonResponse({'status': 'error', 'message': 'Invalid item quantity or product ID.'}, status=400)
+
                 if qty <= 0:
                     continue
 
                 prod = Product.objects.select_for_update().filter(id=prod_id, is_active=True).first()
                 if not prod:
-                    invalid_product_names.append(str(prod_id))
+                    invalid_product_ids.append(str(prod_id))
                     continue
 
                 if prod.stock < qty:
@@ -438,12 +528,10 @@ def place_order_api(request):
                         'message': f'Insufficient stock for "{prod.name}". Only {prod.stock} unit(s) left.'
                     }, status=400)
 
-                # ALWAYS USE EFFECTIVE PRICE (Discount price if available)
                 item_price = prod.effective_price
                 subtotal += (Decimal(str(item_price)) * qty)
                 validated_items.append((prod, qty, item_price))
 
-            # If cart only contained deleted/unavailable products
             if not validated_items:
                 return JsonResponse({
                     'status': 'error',
@@ -475,7 +563,7 @@ def place_order_api(request):
                 discount_amount=discount_amount,
                 promo_code=applied_promo,
                 status='Placed',
-                total_amount=total_amount
+                total_amount=total_amount,
             )
 
             order_items_payload = []
@@ -486,7 +574,7 @@ def place_order_api(request):
                     product_name=prod.name,
                     product_code=prod.product_code,
                     quantity=qty,
-                    price=price
+                    price=price,
                 )
                 Product.objects.filter(id=prod.id).update(stock=F('stock') - qty)
                 order_items_payload.append({
@@ -504,18 +592,12 @@ def place_order_api(request):
             AnalyticsEvent.objects.create(
                 ip_address=ip,
                 path='/checkout/success',
-                event_type='order_completed'
+                event_type='order_completed',
             )
 
             cache.set(cache_key, True, timeout=5)
 
-            # RICH ORDER RECEIPT: the order-confirmation popup used to only
-            # show an Order ID + grand total, with no customer name, no
-            # itemized product list/quantities and no price breakdown -- so
-            # buyers had nothing resembling a trustworthy digital receipt.
-            # `status`/`order_id`/`total` are kept as-is for backward
-            # compatibility; everything else below is additive.
-            return JsonResponse({
+            response_data = {
                 'status': 'success',
                 'order_id': order.order_id,
                 'total': str(order.total_amount),
@@ -530,12 +612,17 @@ def place_order_api(request):
                 'delivery_fee': str(Decimal(str(delivery_fee)).quantize(Decimal('0.01'))),
                 'estimated_delivery': "1–2 Business Days" if is_dhaka else "2–4 Business Days",
                 'items': order_items_payload,
-            })
+            }
+            if invalid_product_ids:
+                response_data['removed_items_notice'] = (
+                    f"{len(invalid_product_ids)} unavailable item(s) were automatically excluded from your order."
+                )
+            return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-# --- IN-PLACE MEDIA UPDATE API (FOR ALREADY-UPLOADED PHOTOS) ---
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_update_image(request):
@@ -583,7 +670,7 @@ def merchant_update_image(request):
     ts = int(timezone.now().timestamp() * 1000)
     return JsonResponse({'status': 'success', 'new_url': f"{new_url}?v={ts}"})
 
-# --- MERCHANT ADMIN ---
+
 @login_required(login_url='admin_login')
 def merchant_dashboard(request):
     total_sales = Order.objects.filter(status='Delivered').aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0.00')
@@ -601,6 +688,7 @@ def merchant_dashboard(request):
         'active_menu': 'dashboard',
     })
 
+
 @login_required(login_url='admin_login')
 def merchant_orders(request):
     status_filter = request.GET.get('status', 'all').strip()
@@ -611,10 +699,10 @@ def merchant_orders(request):
         orders = orders.filter(status__iexact=status_filter)
     if search_query:
         orders = orders.filter(
-            Q(order_id__icontains=search_query) | 
-            Q(customer_phone__icontains=search_query) | 
-            Q(customer_name__icontains=search_query) | 
-            Q(district__icontains=search_query)
+            Q(order_id__icontains=search_query)
+            | Q(customer_phone__icontains=search_query)
+            | Q(customer_name__icontains=search_query)
+            | Q(district__icontains=search_query)
         )
 
     paginator = Paginator(orders, 20)
@@ -627,6 +715,7 @@ def merchant_orders(request):
         'search_query': search_query,
     })
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def update_order_status(request, pk):
@@ -637,6 +726,7 @@ def update_order_status(request, pk):
         order.save(update_fields=['status'])
         messages.success(request, f'Order {order.order_id} updated to {status}.')
     return redirect('merchant_orders')
+
 
 @login_required(login_url='admin_login')
 @require_POST
@@ -653,6 +743,7 @@ def bulk_order_action(request):
             messages.success(request, f'Deleted {len(order_ids)} selected orders.')
     return redirect('merchant_orders')
 
+
 @login_required(login_url='admin_login')
 def export_orders_csv(request):
     response = HttpResponse(content_type='text/csv')
@@ -660,10 +751,14 @@ def export_orders_csv(request):
     writer = csv.writer(response)
     writer.writerow(['Order ID', 'Customer', 'Phone', 'District', 'Thana', 'Address', 'Fee', 'Discount', 'Total', 'Status', 'Date'])
     for o in Order.objects.all().order_by('-created_at'):
-        writer.writerow([o.order_id, o.customer_name, o.customer_phone, o.district, o.thana or '', o.shipping_address, o.delivery_fee, o.discount_amount, o.total_amount, o.status, o.created_at.strftime('%Y-%m-%d %H:%M')])
+        writer.writerow([
+            o.order_id, o.customer_name, o.customer_phone, o.district, o.thana or '',
+            o.shipping_address, o.delivery_fee, o.discount_amount, o.total_amount,
+            o.status, o.created_at.strftime('%Y-%m-%d %H:%M')
+        ])
     return response
 
-# Customers Management with Order History
+
 @login_required(login_url='admin_login')
 def merchant_customers(request):
     search = request.GET.get('q', '').strip()
@@ -692,7 +787,7 @@ def merchant_customers(request):
         'search_query': search,
     })
 
-# Products Management (Supports Up to 6 Images, SKU & Edit Modal)
+
 @login_required(login_url='admin_login')
 def merchant_products(request, edit_pk=None):
     search = request.GET.get('q', '').strip()
@@ -712,12 +807,6 @@ def merchant_products(request, edit_pk=None):
 
     paginator = Paginator(products_qs, 15)
     page_obj = paginator.get_page(request.GET.get('page', 1))
-    # BUG FIX: previously an unordered flat Category.objects.all() was passed
-    # to the "Category" <select> in both the Add Product and Edit Product
-    # modals, so sub-categories were mixed in with top-level categories with
-    # no visual distinction - merchants often couldn't tell sub-categories
-    # were even there ("sub category doesn't show"). select_related('parent')
-    # + ordering lets the template render "— SubName (ParentName)" clearly.
     categories = Category.objects.select_related('parent').order_by('name')
 
     return render(request, 'merchant/products.html', {
@@ -729,6 +818,7 @@ def merchant_products(request, edit_pk=None):
         'search_query': search,
         'selected_category': cat_id,
     })
+
 
 @login_required(login_url='admin_login')
 @require_POST
@@ -742,8 +832,7 @@ def add_product(request):
     stock = request.POST.get('stock', 50)
     badge_tag = request.POST.get('badge_tag', '').strip()
     is_featured = bool(request.POST.get('is_featured'))
-    
-    # 6 Images Support
+
     main_image = request.FILES.get('main_image')
     gallery_images = request.FILES.getlist('gallery_images')
 
@@ -751,19 +840,20 @@ def add_product(request):
         category = get_object_or_404(Category, pk=category_id) if category_id else None
         d_price = Decimal(str(discount_price)) if discount_price else None
         r_price = Decimal(str(price))
-        if d_price and d_price > r_price:
+        if d_price is not None and d_price > r_price:
             d_price = r_price
 
         prod = Product.objects.create(
             name=name, product_code=product_code, category=category, description=description,
             price=r_price, discount_price=d_price, stock=int(stock),
-            badge_tag=badge_tag, is_featured=is_featured, image=main_image
+            badge_tag=badge_tag, is_featured=is_featured, image=main_image,
         )
         for g_img in gallery_images[:5]:
             ProductImage.objects.create(product=prod, image=g_img)
 
         messages.success(request, f'Product "{name}" (Code: {prod.product_code}) created successfully!')
     return redirect('merchant_products')
+
 
 @login_required(login_url='admin_login')
 def merchant_edit_product(request, pk):
@@ -773,8 +863,6 @@ def merchant_edit_product(request, pk):
         product.name = request.POST.get('name', product.name).strip()
         p_code = request.POST.get('product_code', '').strip().upper()
         if p_code:
-            # BUG FIX: previously a duplicate code was silently ignored with no
-            # feedback, leaving the admin thinking the code had been updated.
             if Product.objects.filter(product_code=p_code).exclude(pk=product.pk).exists():
                 messages.error(request, f'Product code "{p_code}" is already used by another product. Code was NOT changed.')
             else:
@@ -798,7 +886,6 @@ def merchant_edit_product(request, pk):
 
         product.save()
 
-        # Handle additional gallery images (up to 5)
         new_gallery = request.FILES.getlist('gallery_images')
         for g_img in new_gallery:
             if product.images.count() < 5:
@@ -809,6 +896,7 @@ def merchant_edit_product(request, pk):
 
     return merchant_products(request, edit_pk=pk)
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_delete_product(request, pk):
@@ -818,6 +906,7 @@ def merchant_delete_product(request, pk):
     messages.success(request, f'Product "{name}" deleted successfully!')
     return redirect('merchant_products')
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_delete_product_image(request, pk):
@@ -826,6 +915,7 @@ def merchant_delete_product_image(request, pk):
     img.delete()
     messages.success(request, 'Gallery image removed.')
     return redirect('merchant_edit_product', pk=prod_pk)
+
 
 @login_required(login_url='admin_login')
 @require_POST
@@ -845,7 +935,7 @@ def bulk_product_action(request):
             messages.success(request, f'Deleted {len(product_ids)} products.')
     return redirect('merchant_products')
 
-# Categories & Sub-categories with Full Edit Support
+
 @login_required(login_url='admin_login')
 def merchant_categories(request):
     if request.method == 'POST':
@@ -875,6 +965,7 @@ def merchant_categories(request):
         'active_menu': 'categories',
     })
 
+
 @login_required(login_url='admin_login')
 def merchant_category_detail(request, pk):
     category = get_object_or_404(Category, pk=pk)
@@ -883,15 +974,13 @@ def merchant_category_detail(request, pk):
         if action == 'update_category':
             category.name = request.POST.get('name', category.name).strip()
             category.short_description = request.POST.get('short_description', category.short_description).strip()
-            # BUG FIX: the edit form posts meta_title/meta_description/meta_keywords
-            # (see templates/merchant/category_detail.html) but these were never
-            # read from request.POST, so SEO fields typed by the admin were silently
-            # discarded and never saved to the database.
             category.meta_title = request.POST.get('meta_title', category.meta_title).strip()
             category.meta_description = request.POST.get('meta_description', category.meta_description).strip()
             category.meta_keywords = request.POST.get('meta_keywords', category.meta_keywords).strip()
-            if 'banner' in request.FILES: category.banner = request.FILES['banner']
-            if 'image' in request.FILES: category.image = request.FILES['image']
+            if 'banner' in request.FILES:
+                category.banner = request.FILES['banner']
+            if 'image' in request.FILES:
+                category.image = request.FILES['image']
             category.save()
             messages.success(request, 'Category updated successfully!')
             return redirect('merchant_category_detail', pk=category.pk)
@@ -913,8 +1002,10 @@ def merchant_category_detail(request, pk):
             sub = get_object_or_404(Category, pk=sub_pk, parent=category)
             sub.name = request.POST.get('name', sub.name).strip()
             sub.short_description = request.POST.get('short_description', sub.short_description).strip()
-            if 'banner' in request.FILES: sub.banner = request.FILES['banner']
-            if 'image' in request.FILES: sub.image = request.FILES['image']
+            if 'banner' in request.FILES:
+                sub.banner = request.FILES['banner']
+            if 'image' in request.FILES:
+                sub.image = request.FILES['image']
             sub.save()
             messages.success(request, f'Sub-category "{sub.name}" updated successfully!')
             return redirect('merchant_category_detail', pk=category.pk)
@@ -925,13 +1016,16 @@ def merchant_category_detail(request, pk):
         'active_menu': 'categories',
     })
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_toggle_category(request, pk):
     cat = get_object_or_404(Category, pk=pk)
     cat.is_active = not cat.is_active
     cat.save(update_fields=['is_active'])
+    cache.delete('global_active_categories')
     return redirect(request.META.get('HTTP_REFERER', 'merchant_categories'))
+
 
 @login_required(login_url='admin_login')
 @require_POST
@@ -942,7 +1036,7 @@ def merchant_delete_category(request, pk):
     messages.success(request, 'Category deleted successfully!')
     return redirect('merchant_category_detail', pk=parent_id) if parent_id else redirect('merchant_categories')
 
-# Showcase Sections
+
 @login_required(login_url='admin_login')
 def merchant_sections(request):
     if request.method == 'POST':
@@ -954,10 +1048,11 @@ def merchant_sections(request):
 
         if title:
             sec = ShowcaseSection.objects.create(
-                title=title, background_style=bg_style, 
+                title=title, background_style=bg_style,
                 has_countdown=has_countdown, end_time=end_time
             )
-            if product_ids: sec.products.set(product_ids)
+            if product_ids:
+                sec.products.set(product_ids)
             messages.success(request, f'Section "{title}" added to Homepage!')
         return redirect('merchant_sections')
 
@@ -968,9 +1063,6 @@ def merchant_sections(request):
     active_sections = sections.filter(is_active=True).count()
     total_featured_products = sum(s.products.count() for s in sections)
 
-    # Visual swatch classes shown in the "Visual Theme" picker in
-    # merchant/sections.html, one per ShowcaseSection.STYLE_CHOICES key.
-    # Keep in sync with the background rendering in templates/index.html.
     theme_choices = [
         ('light', 'White', 'bg-white border border-slate-200'),
         ('cream', 'Cream', 'bg-[#FBF4E8]'),
@@ -993,6 +1085,7 @@ def merchant_sections(request):
         'theme_choices': theme_choices,
     })
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_edit_section(request, pk):
@@ -1007,6 +1100,7 @@ def merchant_edit_section(request, pk):
     messages.success(request, f'Section "{sec.title}" updated!')
     return redirect('merchant_sections')
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def merchant_toggle_section(request, pk):
@@ -1014,6 +1108,7 @@ def merchant_toggle_section(request, pk):
     sec.is_active = not sec.is_active
     sec.save(update_fields=['is_active'])
     return redirect('merchant_sections')
+
 
 @login_required(login_url='admin_login')
 @require_POST
@@ -1023,7 +1118,7 @@ def merchant_delete_section(request, pk):
     messages.success(request, 'Section deleted successfully!')
     return redirect('merchant_sections')
 
-# Settings & Theme Customizer
+
 @login_required(login_url='admin_login')
 def merchant_settings(request):
     setting = SiteSetting.get_settings()
@@ -1052,6 +1147,7 @@ def merchant_settings(request):
 
     return render(request, 'merchant/settings.html', {'setting': setting, 'active_menu': 'settings'})
 
+
 @login_required(login_url='admin_login')
 def merchant_customize_theme(request):
     setting = SiteSetting.get_settings()
@@ -1065,9 +1161,7 @@ def merchant_customize_theme(request):
 
     return render(request, 'merchant/customize_theme.html', {'setting': setting, 'active_menu': 'themes'})
 
-# ====================================================================
-# EXECUTIVE E-COMMERCE BUSINESS ANALYTICS (CEO DASHBOARD)
-# ====================================================================
+
 @login_required(login_url='admin_login')
 def merchant_analytics(request):
     period = request.GET.get('period', '30d').lower()
@@ -1085,29 +1179,25 @@ def merchant_analytics(request):
         start_time = now - timedelta(days=365)
         trunc_fn = TruncDate
         date_format = '%b %Y'
-    else: # 30d default
+    else:
         start_time = now - timedelta(days=30)
         trunc_fn = TruncDate
         date_format = '%b %d'
 
-    # Orders Base Query
     period_orders = Order.objects.filter(created_at__gte=start_time)
     total_orders_count = period_orders.count()
     delivered_orders = period_orders.filter(status='Delivered')
     returned_orders = period_orders.filter(status='Returned')
     cancelled_orders = period_orders.filter(status='Cancelled')
 
-    # Financial KPIs
     net_revenue = delivered_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0.00')
     gross_pipeline = period_orders.aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0.00')
     aov = delivered_orders.aggregate(Avg('total_amount'))['total_amount__avg'] or Decimal('0.00')
 
-    # Operational Health KPIs
     return_rate = round((returned_orders.count() / total_orders_count * 100), 1) if total_orders_count > 0 else 0.0
     cancel_rate = round((cancelled_orders.count() / total_orders_count * 100), 1) if total_orders_count > 0 else 0.0
     delivery_success_rate = round((delivered_orders.count() / total_orders_count * 100), 1) if total_orders_count > 0 else 0.0
 
-    # Traffic & Funnel
     unique_visitors = UniqueVisitorLog.objects.filter(created_at__gte=start_time).values('ip_address').distinct().count()
     product_views = AnalyticsEvent.objects.filter(event_type='product_view', timestamp__gte=start_time).count()
     add_to_cart_events = AnalyticsEvent.objects.filter(event_type='add_to_cart', timestamp__gte=start_time).count()
@@ -1117,40 +1207,25 @@ def merchant_analytics(request):
     conversion_rate = round((orders_completed / unique_visitors * 100), 1) if unique_visitors > 0 else 0.0
     cart_abandonment_rate = round(((add_to_cart_events - orders_completed) / add_to_cart_events * 100), 1) if add_to_cart_events > orders_completed else 0.0
 
-    # Charts: 1. Sales & Orders Trend (Dual Axis / Line)
     sales_qs = delivered_orders.annotate(t=trunc_fn('created_at')).values('t').annotate(rev=Sum('total_amount'), count=Count('id')).order_by('t')
     trend_labels = [item['t'].strftime(date_format) for item in sales_qs]
     trend_revenue = [float(item['rev']) for item in sales_qs]
     trend_orders = [item['count'] for item in sales_qs]
 
-    # Charts: 2. Order Status Breakdown (Donut)
     status_qs = period_orders.values('status').annotate(count=Count('id'))
     status_labels = [s['status'] for s in status_qs]
     status_data = [s['count'] for s in status_qs]
 
-    # Charts: 3. Top Products by Revenue & Volume
-    top_items = OrderItem.objects.filter(order__created_at__gte=start_time).values('product_name', 'product_code').annotate(
-        qty=Sum('quantity'),
-        total_rev=Sum(F('quantity') * F('price'))
-    ).order_by('-total_rev')[:6]
-    top_prod_labels = [item['product_name'][:18] for item in top_items]
-    top_prod_rev = [float(item['total_rev']) for item in top_items]
-    top_prod_qty = [item['qty'] for item in top_items]
-
-    # Charts: 4. District Breakdown (Regional Demand)
     district_qs = period_orders.values('district').annotate(count=Count('id')).order_by('-count')[:6]
     district_labels = [d['district'] for d in district_qs]
     district_data = [d['count'] for d in district_qs]
 
-    # Charts: 5. Search Queries Intelligence
     top_searches = SearchQuery.objects.filter(timestamp__gte=start_time).values('query').annotate(c=Count('id')).order_by('-c')[:8]
 
-    # Charts: 6. Device Split
     device_qs = AnalyticsEvent.objects.filter(timestamp__gte=start_time).values('device_type').annotate(c=Count('id'))
     device_labels = [d['device_type'] or 'Desktop' for d in device_qs]
     device_data = [d['c'] for d in device_qs]
 
-    # Funnel Dataset
     funnel_labels = ['Unique Visitors', 'Product Views', 'Added to Cart', 'Checkout Initiated', 'Completed Orders']
     funnel_data = [unique_visitors, product_views, add_to_cart_events, checkout_starts, orders_completed]
 
@@ -1168,15 +1243,11 @@ def merchant_analytics(request):
         'cart_abandonment_rate': cart_abandonment_rate,
         'unique_visitors': unique_visitors,
         'top_searches': top_searches,
-        
-        # Charts JSON
         'trend_labels': json.dumps(trend_labels),
         'trend_revenue': json.dumps(trend_revenue),
         'trend_orders': json.dumps(trend_orders),
         'status_labels': json.dumps(status_labels),
         'status_data': json.dumps(status_data),
-        'top_prod_labels': json.dumps(top_prod_labels),
-        'top_prod_rev': json.dumps(top_prod_rev),
         'district_labels': json.dumps(district_labels),
         'district_data': json.dumps(district_data),
         'device_labels': json.dumps(device_labels),
@@ -1186,13 +1257,13 @@ def merchant_analytics(request):
         'active_menu': 'analytics',
     })
 
-# Promo Codes
+
 @login_required(login_url='admin_login')
 def merchant_promos(request):
     if request.method == 'POST':
         code = request.POST.get('code', '').strip().upper()
         disc_type = request.POST.get('discount_type', 'percentage')
-        
+
         try:
             disc_val = int(request.POST.get('discount_value', 10) or 10)
         except Exception:
@@ -1219,6 +1290,7 @@ def merchant_promos(request):
     promos = PromoCode.objects.all().order_by('-created_at')
     return render(request, 'merchant/promo.html', {'promos': promos, 'active_menu': 'promo'})
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def toggle_promo(request, pk):
@@ -1227,6 +1299,7 @@ def toggle_promo(request, pk):
     p.save(update_fields=['is_active'])
     return redirect('merchant_promos')
 
+
 @login_required(login_url='admin_login')
 @require_POST
 def delete_promo(request, pk):
@@ -1234,9 +1307,3 @@ def delete_promo(request, pk):
     p.delete()
     messages.success(request, 'Promo code deleted successfully!')
     return redirect('merchant_promos')
-
-
-
-
-
-

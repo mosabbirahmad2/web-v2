@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from io import BytesIO
 from PIL import Image
@@ -12,6 +13,7 @@ from django.core.cache import cache
 from django.db.models import Avg
 from django.db.models.signals import pre_delete, pre_save
 from django.dispatch import receiver
+
 
 def optimize_image(image_field, max_size=(1000, 1000), quality=88):
     if not image_field or not hasattr(image_field, 'file'):
@@ -28,7 +30,7 @@ def optimize_image(image_field, max_size=(1000, 1000), quality=88):
         out = BytesIO()
         img.save(out, format='WEBP', quality=quality, optimize=True)
         out.seek(0)
-        
+
         base_name = os.path.basename(image_field.name)
         clean_name = os.path.splitext(base_name)[0]
         image_field.file = ContentFile(out.read())
@@ -45,20 +47,41 @@ class SiteSetting(models.Model):
     whatsapp_username = models.CharField(max_length=100, default="fantacytech", blank=True)
     contact_email = models.EmailField(default="support@fantacytech.com")
     office_address = models.TextField(default="Dhaka, Bangladesh")
-    announcement_notice = models.CharField(max_length=300, default="Welcome to Fantacy Tech! Premium Phone Covers & Key Rings with Fast Home Delivery!")
+    announcement_notice = models.CharField(
+        max_length=300,
+        default="Welcome to Fantacy Tech! Premium Phone Covers & Key Rings with Fast Home Delivery!",
+    )
     delivery_fee_dhaka = models.DecimalField(max_digits=6, decimal_places=2, default=70.00)
     delivery_fee_outside = models.DecimalField(max_digits=6, decimal_places=2, default=130.00)
     theme_color = models.CharField(max_length=30, default="#5C3214")
     theme_mode = models.CharField(max_length=10, default="light", choices=(('light', 'Light'), ('dark', 'Dark')))
     enable_buy_now = models.BooleanField(default=True)
 
-    # SEO Fields
     meta_title = models.CharField(max_length=200, blank=True, default="Fantacy Tech - Premium Mobile Covers & Accessories")
-    meta_description = models.CharField(max_length=160, blank=True, default="Shop premium mobile cases, custom key rings and luxury accessories online in Bangladesh with Cash on Delivery!")
-    meta_keywords = models.CharField(max_length=255, blank=True, default="phone covers, mobile case, key rings, accessories, bangladesh, online shop")
+    meta_description = models.CharField(
+        max_length=160,
+        blank=True,
+        default="Shop premium mobile cases, custom key rings and luxury accessories online in Bangladesh with Cash on Delivery!",
+    )
+    meta_keywords = models.CharField(
+        max_length=255,
+        blank=True,
+        default="phone covers, mobile case, key rings, accessories, bangladesh, online shop",
+    )
 
     def __str__(self):
         return f"{self.site_name} Settings"
+
+    @property
+    def whatsapp_link_number(self):
+        digits = re.sub(r'\D', '', self.whatsapp_number or '')
+        if not digits:
+            return ''
+        if len(digits) == 11 and digits.startswith('01'):
+            return f"88{digits}"
+        if digits.startswith('00'):
+            return digits[2:]
+        return digits
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -98,7 +121,6 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # SEO Fields
     meta_title = models.CharField(max_length=200, blank=True)
     meta_description = models.CharField(max_length=160, blank=True)
     meta_keywords = models.CharField(max_length=255, blank=True)
@@ -145,11 +167,6 @@ class Category(models.Model):
 
     @property
     def total_active_products(self):
-        # BUG FIX: the homepage "Shop by Category" cards showed "0 items" for
-        # any parent category whose products live only inside its
-        # subcategories (cat.products.count only ever counted DIRECT
-        # products on the parent itself). This counts direct active
-        # products PLUS active products inside any active subcategory.
         direct = self.products.filter(is_active=True).count()
         sub_ids = list(self.subcategories.filter(is_active=True).values_list('id', flat=True))
         sub_count = Product.objects.filter(category_id__in=sub_ids, is_active=True).count() if sub_ids else 0
@@ -172,7 +189,6 @@ class Product(models.Model):
     views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # SEO Fields
     meta_title = models.CharField(max_length=200, blank=True)
     meta_description = models.CharField(max_length=160, blank=True)
     meta_keywords = models.CharField(max_length=255, blank=True)
@@ -222,9 +238,6 @@ class Product(models.Model):
 
     @property
     def effective_price(self):
-        # BUG FIX: used to check "self.discount_price and self.discount_price > 0",
-        # which treats a deliberately-set Decimal('0.00') discount as falsy and
-        # ignores it. Use "is not None" so a 0-amount discount is honored too.
         if self.discount_price is not None and self.discount_price < self.price:
             return self.discount_price
         return self.price
@@ -237,22 +250,21 @@ class Product(models.Model):
 
     @property
     def save_amount(self):
-        # BUG FIX: product_detail.html used to try
-        # {{ product.price|add:"-product.discount_price" }} to show the savings,
-        # but Django's `add` filter cannot resolve a variable reference inside a
-        # quoted string argument, so it silently rendered nothing. Compute it here
-        # instead and expose it as a normal template variable.
         if self.discount_price is not None and self.discount_price < self.price:
             return self.price - self.discount_price
         return 0
 
     @property
     def avg_rating(self):
+        if hasattr(self, '_avg_rating'):
+            return round(float(self._avg_rating), 1) if self._avg_rating is not None else None
         avg = self.reviews.filter(is_approved=True).aggregate(Avg('rating'))['rating__avg']
         return round(avg, 1) if avg else None
 
     @property
     def reviews_count(self):
+        if hasattr(self, '_reviews_count'):
+            return int(self._reviews_count or 0)
         return self.reviews.filter(is_approved=True).count()
 
     def __str__(self):
@@ -291,9 +303,6 @@ class ProductReview(models.Model):
 
 
 class ShowcaseSection(models.Model):
-    # Expanded from 3 to 9 professional storefront themes (admin requested
-    # more visual variety in the "Homepage Showcase Sections" theme picker).
-    # index.html's section renderer has a matching Tailwind class for each key.
     STYLE_CHOICES = (
         ('light', 'White / Minimal'),
         ('cream', 'Soft Cream'),
@@ -577,9 +586,3 @@ def auto_delete_old_category_files_on_update(sender, instance, **kwargs):
             old_cat.banner.delete(save=False)
         except Exception:
             pass
-
-
-
-
-
-

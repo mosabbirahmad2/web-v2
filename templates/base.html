@@ -1,12 +1,22 @@
-{% load static %}
+{% load static shop_extras %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ site_setting.meta_title|default:site_setting.site_name }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ site_setting.meta_description }}{% endblock %}">
   {% if site_setting.meta_keywords %}<meta name="keywords" content="{{ site_setting.meta_keywords }}">{% endif %}
+  {% block canonical %}<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">{% endblock %}
+
+  {% block og_tags %}
+  <meta property="og:site_name" content="{{ site_setting.site_name }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ site_setting.meta_title|default:site_setting.site_name }}">
+  <meta property="og:description" content="{{ site_setting.meta_description }}">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  {% if site_setting.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_setting.logo.url }}">{% endif %}
+  {% endblock %}
 
   <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
 
@@ -26,8 +36,6 @@
     .text-theme { color: var(--brand-primary); }
     .border-theme { border-color: var(--brand-primary); }
 
-    /* iOS/Android auto-zoom on inputs below 16px is avoided by keeping
-       inputs at text-base (16px) on mobile and shrinking only on sm+. */
     input, select, textarea { font-size: 16px; }
     @media (min-width: 640px) { input, select, textarea { font-size: inherit; } }
 
@@ -35,13 +43,6 @@
     .cart-hidden { transform: translateX(100%); }
     .nav-drawer-hidden { transform: translateX(-100%); }
 
-    /* REDESIGN: the old single-direction @keyframes marquee started the text
-       fully off-screen to the right and slid it clear across -- on narrow
-       mobile widths this meant long announcement text was invisible for a
-       large chunk of the animation and visually collided with the live-dot
-       indicator at the start. Using a translateX(0%) -> (-100%) loop with
-       the text duplicated keeps it flowing continuously with no dead gap,
-       and the hover-pause rule now actually has something to pause cleanly. */
     @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
     .marquee-track { display: flex; width: max-content; animation: marquee 22s linear infinite; }
     .marquee-wrap:hover .marquee-track { animation-play-state: paused; }
@@ -54,7 +55,6 @@
     @keyframes badgeBounce { 0%, 100% { transform: scale(1); } 35% { transform: scale(1.35); } 60% { transform: scale(0.92); } }
     .badge-bounce { animation: badgeBounce .4s ease-in-out; }
 
-    /* Subcategory mega-dropdown (desktop only) */
     .nav-cat-item { position: relative; }
     .nav-cat-dropdown {
       position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 200px;
@@ -69,15 +69,80 @@
       opacity: 1; visibility: visible; transform: translateY(0);
     }
 
-    /* "In Your Bag" button state once a product is in the cart */
     .btn-in-bag { background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; cursor: default; }
     .btn-in-bag:hover { background-color: #ecfdf5 !important; }
+
+    /* Dark Mode Storefront Overrides */
+    body.dark-theme { background-color: #020617; color: #f1f5f9; }
+    body.dark-theme header,
+    body.dark-theme header > div,
+    body.dark-theme .marquee-wrap,
+    body.dark-theme #cartDrawer,
+    body.dark-theme #mobileNavDrawer,
+    body.dark-theme #checkoutModal > div,
+    body.dark-theme #orderReceiptCard,
+    body.dark-theme .nav-cat-dropdown,
+    body.dark-theme #searchDropdown,
+    body.dark-theme #searchDropdownMobile,
+    body.dark-theme .toast-item {
+      background-color: #0f172a !important;
+      color: #f1f5f9 !important;
+      border-color: #1e293b !important;
+    }
+    body.dark-theme main .bg-white,
+    body.dark-theme .store-surface {
+      background-color: #0f172a !important;
+      border-color: #1e293b !important;
+    }
+    body.dark-theme main .bg-\[\#F6F7F9\],
+    body.dark-theme main .bg-slate-50,
+    body.dark-theme #cartDrawer .bg-\[\#FAF9F5\],
+    body.dark-theme #mobileNavDrawer .bg-\[\#FAF9F5\],
+    body.dark-theme #cartDrawer .bg-white,
+    body.dark-theme #orderReceiptCard .bg-slate-50 {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .border-slate-200,
+    body.dark-theme .border-slate-100,
+    body.dark-theme .border-slate-300 {
+      border-color: #334155 !important;
+    }
+    body.dark-theme .text-slate-900,
+    body.dark-theme .text-slate-800 {
+      color: #f8fafc !important;
+    }
+    body.dark-theme .text-slate-700,
+    body.dark-theme .text-slate-600,
+    body.dark-theme .text-slate-500 {
+      color: #cbd5e1 !important;
+    }
+    body.dark-theme input,
+    body.dark-theme select,
+    body.dark-theme textarea {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .bg-amber-50,
+    body.dark-theme .bg-amber-50\/70,
+    body.dark-theme .bg-amber-100\/70 {
+      background-color: rgba(245, 158, 11, 0.16) !important;
+      color: #fde68a !important;
+    }
+    body.dark-theme .text-amber-900,
+    body.dark-theme .text-amber-800 {
+      color: #fde68a !important;
+    }
+    body.dark-theme .add-to-bag-btn:not(.btn-in-bag) {
+      background-color: var(--brand-primary) !important;
+      color: #ffffff !important;
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="{% if site_setting.theme_mode == 'dark' %}bg-slate-950 text-slate-100{% else %}bg-[#FAF9F5] text-slate-900{% endif %} flex flex-col min-h-screen">
+<body class="{% if site_setting.theme_mode == 'dark' %}dark-theme bg-slate-950 text-slate-100{% else %}bg-[#FAF9F5] text-slate-900{% endif %} flex flex-col min-h-screen">
 
-  <!-- Professional Toast Notification Stack (replaces window.alert()) -->
   <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
 
   <!-- Rich Order-Confirmed Receipt Modal -->
@@ -92,7 +157,6 @@
           <p class="text-xs text-slate-500 mt-1">We'll call you shortly to confirm delivery.</p>
         </div>
 
-        <!-- Order ID row with Copy button -->
         <div class="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-left">
           <div>
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Order ID</div>
@@ -103,7 +167,6 @@
           </button>
         </div>
 
-        <!-- Compact 3-step status tracker -->
         <div class="flex items-start justify-between text-[10px] font-bold text-slate-400 px-1">
           <div class="flex flex-col items-center gap-1.5 flex-1">
             <div class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-check"></i></div>
@@ -123,13 +186,11 @@
       </div>
 
       <div class="p-6 sm:p-7 space-y-4">
-        <!-- Ordered Items & Quantity -->
         <div>
           <h4 class="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-2">Ordered Items</h4>
           <div id="osItemsList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
         </div>
 
-        <!-- Price Breakdown -->
         <div class="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-4 text-xs space-y-1.5 font-semibold text-slate-800">
           <div class="flex justify-between"><span>Items Subtotal</span><span id="osSubtotal">৳ 0</span></div>
           <div id="osDiscountRow" class="hidden justify-between text-emerald-700"><span>Coupon Discount</span><span id="osDiscount">- ৳ 0</span></div>
@@ -140,7 +201,6 @@
           </div>
         </div>
 
-        <!-- Delivery Destination -->
         <div class="rounded-2xl border border-slate-100 p-4 text-xs space-y-1.5">
           <div class="font-bold text-slate-900 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-amber-900"></i> Delivery Destination</div>
           <p id="osAddress" class="text-slate-600 leading-relaxed"></p>
@@ -172,27 +232,25 @@
       <button type="button" onclick="closeMobileNav()" class="text-slate-400 hover:text-black text-xl p-1" aria-label="Close menu">&times;</button>
     </div>
     <div class="flex-1 overflow-y-auto p-3 space-y-1">
-      <a href="/#all-products-section" onclick="closeMobileNav()" class="block px-3.5 py-3 rounded-xl bg-amber-100/70 text-amber-900 font-bold text-sm min-h-[42px] flex items-center">
+      <a href="/#all-products-section" onclick="closeMobileNav()" class="px-3.5 py-3 rounded-xl bg-amber-100/70 text-amber-900 font-bold text-sm min-h-[42px] flex items-center">
         All Products
       </a>
       {% for cat in global_categories %}
       <div class="border-b border-slate-100 last:border-0">
         <div class="flex items-center">
           <a href="{% url 'shop_category' cat.slug %}" class="flex-1 px-3.5 py-3 font-bold text-sm text-slate-800 min-h-[42px] flex items-center">{{ cat.name }}</a>
-          {% if cat.subcategories.all %}
+          {% if cat.active_subcategories %}
           <button type="button" onclick="toggleMobileAccordion({{ cat.id }})" class="w-11 h-11 flex items-center justify-center text-slate-400 shrink-0" aria-label="Expand subcategories">
             <i id="mobileAccIcon{{ cat.id }}" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
           </button>
           {% endif %}
         </div>
-        {% if cat.subcategories.all %}
+        {% if cat.active_subcategories %}
         <div id="mobileAcc{{ cat.id }}" class="hidden pl-4 pb-2 space-y-0.5">
-          {% for sub in cat.subcategories.all %}
-          {% if sub.is_active %}
-          <a href="{% url 'shop_category' sub.slug %}" onclick="closeMobileNav()" class="block px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-amber-50 hover:text-amber-900 min-h-[38px] flex items-center">
+          {% for sub in cat.active_subcategories %}
+          <a href="{% url 'shop_category' sub.slug %}" onclick="closeMobileNav()" class="px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-amber-50 hover:text-amber-900 min-h-[38px] flex items-center">
             {{ sub.name }}
           </a>
-          {% endif %}
           {% endfor %}
         </div>
         {% endif %}
@@ -203,15 +261,16 @@
       <a href="tel:{{ site_setting.contact_phone }}" class="flex items-center gap-2.5 text-xs font-bold text-slate-700 min-h-[38px]">
         <i class="fa-solid fa-phone text-emerald-600"></i> Helpline: {{ site_setting.contact_phone }}
       </a>
-      <a href="https://wa.me/{{ site_setting.whatsapp_number }}" target="_blank" rel="noopener" class="flex items-center gap-2.5 text-xs font-bold text-slate-700 min-h-[38px]">
+      {% if site_setting.whatsapp_link_number %}
+      <a href="https://wa.me/{{ site_setting.whatsapp_link_number }}" target="_blank" rel="noopener" class="flex items-center gap-2.5 text-xs font-bold text-slate-700 min-h-[38px]">
         <i class="fa-brands fa-whatsapp text-emerald-600"></i> Chat on WhatsApp
       </a>
+      {% endif %}
     </div>
   </div>
 
   <!-- Main Header -->
   <header class="bg-white sticky top-0 z-40 border-b border-slate-200 shadow-sm">
-    <!-- Mobile: Row 1 (hamburger + logo + bag) -->
     <div class="md:hidden w-full max-w-[1600px] mx-auto px-3 h-16 flex items-center justify-between gap-2">
       <button type="button" onclick="openMobileNav()" aria-label="Open menu" class="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
         <i class="fa-solid fa-bars text-sm"></i>
@@ -225,23 +284,22 @@
         </span>
         {% endif %}
       </a>
-      <button type="button" onclick="toggleCart()" class="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
+      <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
         <i class="fa-solid fa-bag-shopping text-sm"></i>
         <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
       </button>
     </div>
-    <!-- Mobile: Row 2 (full-width search) -->
+
     <div class="md:hidden px-4 pb-3 relative">
       <form action="/" method="GET" class="relative flex items-center">
         <input type="text" name="q" id="storeSearchMobile" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdownMobile')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-base focus:outline-none focus:border-slate-900 bg-slate-50/70">
-        <button type="submit" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
+        <button type="submit" aria-label="Search" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
           <i class="fa-solid fa-magnifying-glass"></i>
         </button>
       </form>
       <div id="searchDropdownMobile" class="hidden absolute left-4 right-4 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
     </div>
 
-    <!-- Desktop: single row -->
     <div class="hidden md:flex w-full max-w-[1600px] mx-auto px-4 sm:px-6 h-20 items-center justify-between gap-4">
       <a href="/" class="flex items-center gap-2 shrink-0">
         {% if site_setting.logo %}
@@ -256,28 +314,19 @@
       <div class="relative flex-1 max-w-xl mx-2">
         <form action="/" method="GET" class="relative flex items-center">
           <input type="text" name="q" id="storeSearch" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdown')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-xs focus:outline-none focus:border-slate-900 bg-slate-50/70">
-          <button type="submit" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
+          <button type="submit" aria-label="Search" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
             <i class="fa-solid fa-magnifying-glass"></i>
           </button>
         </form>
         <div id="searchDropdown" class="hidden absolute left-0 right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
       </div>
 
-      <button type="button" onclick="toggleCart()" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
+      <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
         <i class="fa-solid fa-bag-shopping text-sm"></i>
         <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
       </button>
     </div>
 
-    <!-- Desktop-only category strip. Mobile browses categories via the
-         slide-out drawer above instead, so this never needs to scroll
-         horizontally -- which is also the BUG FIX for the dropdown
-         clipping: .nav-cat-dropdown used to live inside a wrapper with
-         overflow-x-auto, and per the CSS spec, setting overflow-x to
-         anything but visible forces overflow-y to compute to "auto" too,
-         which silently clipped the dropdown's vertical overflow. Removing
-         the horizontal scroll (now just flex-wrap) removes that clipping
-         context entirely. -->
     <div class="hidden md:block bg-white border-t border-slate-100 px-4 sm:px-6">
       <div class="w-full max-w-[1600px] mx-auto flex items-center gap-3 py-2 flex-wrap text-xs font-bold">
         <a href="/#all-products-section" class="bg-amber-100/70 text-amber-900 px-3.5 py-1.5 rounded-xl shrink-0">ALL PRODUCTS</a>
@@ -285,16 +334,14 @@
         <div class="nav-cat-item shrink-0">
           <a href="{% url 'shop_category' cat.slug %}" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5">
             {{ cat.name }}
-            {% if cat.subcategories.all %}<i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>{% endif %}
+            {% if cat.active_subcategories %}<i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>{% endif %}
           </a>
-          {% if cat.subcategories.all %}
+          {% if cat.active_subcategories %}
           <div class="nav-cat-dropdown">
-            {% for sub in cat.subcategories.all %}
-            {% if sub.is_active %}
+            {% for sub in cat.active_subcategories %}
             <a href="{% url 'shop_category' sub.slug %}" class="block px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-amber-50 hover:text-amber-900 transition whitespace-nowrap">
               {{ sub.name }}
             </a>
-            {% endif %}
             {% endfor %}
           </div>
           {% endif %}
@@ -304,7 +351,6 @@
     </div>
   </header>
 
-  <!-- Announcement Ticker -->
   {% if site_setting.announcement_notice %}
   <div class="bg-white border-b border-slate-200 py-2 overflow-hidden relative marquee-wrap">
     <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 flex items-center gap-3 text-xs font-semibold text-slate-700">
@@ -319,15 +365,12 @@
   </div>
   {% endif %}
 
-  <!-- Page Content -->
   <main class="flex-1">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Cart Drawer Backdrop -->
   <div id="cartBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-[90] transition-opacity" onclick="toggleCart()"></div>
 
-  <!-- Cart Drawer (Shopping Bag) -->
   <div id="cartDrawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[100] cart-drawer cart-hidden flex flex-col">
     <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-[#FAF9F5]">
       <div class="flex items-center gap-2">
@@ -362,7 +405,7 @@
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Mobile Number *</label>
-          <input type="text" id="co_phone" required placeholder="017xxxxxxxx" class="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
+          <input type="tel" id="co_phone" required placeholder="017xxxxxxxx" class="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs bg-slate-50 outline-none">
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -411,7 +454,6 @@
     </div>
   </div>
 
-  <!-- Multi-Column Footer -->
   <footer class="bg-slate-950 text-slate-400 text-xs pt-12 pb-8 mt-16 border-t border-slate-800">
     <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
       <div class="space-y-3">
@@ -429,11 +471,11 @@
         </ul>
       </div>
       <div class="space-y-3">
-        <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Support & Delivery</h4>
+        <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Support &amp; Delivery</h4>
         <ul class="space-y-2">
           <li>Cash on Delivery Nationwide</li>
-          <li>Inside Dhaka: ৳{{ site_setting.delivery_fee_dhaka }}</li>
-          <li>Outside Dhaka: ৳{{ site_setting.delivery_fee_outside }}</li>
+          <li>Inside Dhaka: ৳{{ site_setting.delivery_fee_dhaka|clean_price }}</li>
+          <li>Outside Dhaka: ৳{{ site_setting.delivery_fee_outside|clean_price }}</li>
         </ul>
       </div>
       <div class="space-y-3">
@@ -449,6 +491,24 @@
   </footer>
 
   <script>
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatPrice(val) {
+      const num = parseFloat(val);
+      if (isNaN(num)) return escapeHtml(val || '0');
+      if (Math.abs(num - Math.round(num)) < 0.005) {
+        return Math.round(num).toLocaleString('en-US');
+      }
+      return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function getCookie(name) {
       let cookieValue = null;
       if (document.cookie && document.cookie !== '') {
@@ -471,16 +531,27 @@
     let lastOrderId = '';
     const feeDhaka = parseFloat("{{ site_setting.delivery_fee_dhaka|default:70 }}");
     const feeOutside = parseFloat("{{ site_setting.delivery_fee_outside|default:130 }}");
-    const whatsappNumber = "{{ site_setting.whatsapp_number|default:'' }}";
+    const whatsappNumber = "{{ site_setting.whatsapp_link_number|default:'' }}";
     let deliveryFee = feeDhaka;
 
-    function saveCart() {
+    function resetAppliedPromo() {
+      currentDiscount = 0;
+      appliedPromoCode = '';
+      const promoInput = document.getElementById('promoInput');
+      if (promoInput) promoInput.value = '';
+      const promoMsg = document.getElementById('promoMsg');
+      if (promoMsg) { promoMsg.innerText = ''; promoMsg.className = 'text-[11px] font-bold'; }
+    }
+
+    function saveCart(shouldResetPromo = true) {
       localStorage.setItem('fantacy_cart', JSON.stringify(cart));
+      if (shouldResetPromo && (currentDiscount > 0 || appliedPromoCode)) {
+        resetAppliedPromo();
+      }
       renderCartUI();
       syncAddToBagButtons();
     }
 
-    // Mobile Nav Drawer
     function openMobileNav() {
       document.getElementById('mobileNavDrawer').classList.remove('nav-drawer-hidden');
       document.getElementById('mobileNavBackdrop').classList.remove('hidden');
@@ -502,9 +573,6 @@
       document.getElementById('cartDrawer').classList.toggle('cart-hidden');
       document.getElementById('cartBackdrop').classList.toggle('hidden');
     }
-    // openCart()/closeCart() set an explicit state instead of toggling, so
-    // code that needs the drawer in a specific state never accidentally
-    // flips it the wrong way.
     function openCart() {
       document.getElementById('cartDrawer').classList.remove('cart-hidden');
       document.getElementById('cartBackdrop').classList.remove('hidden');
@@ -514,54 +582,45 @@
       document.getElementById('cartBackdrop').classList.add('hidden');
     }
 
-    // ============================================================
-    // ADD TO BAG -- no longer auto-opens the drawer, no longer adds
-    // duplicates of a product already in the bag.
-    // ============================================================
     function addToBag(id, name, effectivePrice, regularPrice, img, maxStock, qty) {
       id = String(id);
       const existing = cart.find(i => String(i.id) === id);
 
       if (existing) {
-        // BUG FIX: this used to silently increment existing.qty on every
-        // click, so clicking "Add to Bag" repeatedly kept growing the
-        // quantity with zero feedback. Now it's a no-op plus a clear toast.
-        showToast(`${name} is already in your bag`, 'info', 4200, { label: 'View Bag', onClick: openCart });
+        showToast(`${escapeHtml(name)} is already in your bag`, 'info', 4200, { label: 'View Bag', onClick: openCart });
         return;
       }
 
-      const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock) : null;
+      const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock, 10) : null;
       if (stock !== null && stock <= 0) {
         showToast('This item is currently out of stock.', 'error');
         return;
       }
 
-      const addQty = (qty && parseInt(qty) > 0) ? parseInt(qty) : 1;
+      const addQty = (qty && parseInt(qty, 10) > 0) ? parseInt(qty, 10) : 1;
       const p = parseFloat(effectivePrice);
       const regP = regularPrice ? parseFloat(regularPrice) : p;
 
       cart.push({ id, name, price: p, regularPrice: regP, img: img || '', qty: addQty, maxStock: stock });
       saveCart();
       bounceCartBadge();
-      showToast(`${name} added to your bag`, 'success', 4200, { label: 'View Bag', onClick: openCart });
+      showToast(`${escapeHtml(name)} added to your bag`, 'success', 4200, { label: 'View Bag', onClick: openCart });
 
       fetch('/api/log-event/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
         body: JSON.stringify({ event_type: 'add_to_cart', product_id: id })
-      });
+      }).catch(() => {});
     }
 
     function bounceCartBadge() {
       document.querySelectorAll('.cart-badge').forEach(b => {
         b.classList.remove('badge-bounce');
-        void b.offsetWidth; // restart animation
+        void b.offsetWidth;
         b.classList.add('badge-bounce');
       });
     }
 
-    // Any product currently in the cart renders its Add-to-Bag button as
-    // "In Your Bag"; removing it from the drawer reverts the button.
     function syncAddToBagButtons() {
       document.querySelectorAll('[data-add-btn]').forEach(btn => {
         const id = String(btn.dataset.addBtn);
@@ -605,34 +664,36 @@
       let total = 0, html = '';
       cart.forEach((item, idx) => {
         total += (item.price * item.qty);
+        const safeName = escapeHtml(item.name);
+        const safeImg = item.img ? escapeHtml(item.img) : '';
         html += `
           <div class="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 min-w-0">
               <div class="w-12 h-12 rounded-xl bg-slate-50 border overflow-hidden shrink-0 flex items-center justify-center">
-                ${item.img ? `<img src="${item.img}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+                ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
               </div>
-              <div>
-                <h4 class="text-xs font-bold text-slate-800 line-clamp-1">${item.name}</h4>
+              <div class="min-w-0">
+                <h4 class="text-xs font-bold text-slate-800 line-clamp-1">${safeName}</h4>
                 <div class="text-xs font-black text-slate-900 mt-0.5">
-                  ৳ ${item.price}
-                  ${item.regularPrice && item.regularPrice > item.price ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">৳${item.regularPrice}</span>` : ''}
+                  ৳ ${formatPrice(item.price)}
+                  ${item.regularPrice && item.regularPrice > item.price ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">৳${formatPrice(item.regularPrice)}</span>` : ''}
                 </div>
                 <div class="flex items-center gap-2 mt-1">
-                  <button type="button" onclick="updateQty(${idx}, -1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold">-</button>
+                  <button type="button" onclick="updateQty(${idx}, -1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold" aria-label="Decrease quantity">-</button>
                   <span class="text-xs font-bold">${item.qty}</span>
-                  <button type="button" onclick="updateQty(${idx}, 1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold">+</button>
+                  <button type="button" onclick="updateQty(${idx}, 1)" class="w-6 h-6 rounded bg-slate-100 text-xs font-bold" aria-label="Increase quantity">+</button>
                 </div>
               </div>
             </div>
-            <button type="button" onclick="removeCartItem(${idx})" class="text-slate-400 hover:text-rose-500 p-2"><i class="fa-regular fa-trash-can"></i></button>
+            <button type="button" onclick="removeCartItem(${idx})" class="text-slate-400 hover:text-rose-500 p-2 shrink-0" aria-label="Remove item"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         `;
       });
       container.innerHTML = html;
-      totalSpan.innerText = `৳ ${total}`;
+      totalSpan.innerText = `৳ ${formatPrice(total)}`;
     }
     function handleDistrictChange(dist) {
-      deliveryFee = (dist.toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
+      deliveryFee = (String(dist || '').toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
       updateBillSummary();
     }
     function updateBillSummary() {
@@ -642,13 +703,17 @@
       const feeElem = document.getElementById('summary_del_charge');
       const totalElem = document.getElementById('summary_total_bill');
 
-      if (prodElem) prodElem.innerText = `৳ ${prodTotal}`;
-      if (discElem) discElem.innerText = `- ৳ ${currentDiscount}`;
-      if (feeElem) feeElem.innerText = `৳ ${deliveryFee}`;
-      if (totalElem) totalElem.innerText = `৳ ${Math.max(0, prodTotal - currentDiscount) + deliveryFee}`;
+      if (prodElem) prodElem.innerText = `৳ ${formatPrice(prodTotal)}`;
+      if (discElem) discElem.innerText = `- ৳ ${formatPrice(currentDiscount)}`;
+      if (feeElem) feeElem.innerText = `৳ ${formatPrice(deliveryFee)}`;
+      if (totalElem) totalElem.innerText = `৳ ${formatPrice(Math.max(0, prodTotal - currentDiscount) + deliveryFee)}`;
     }
     function openCheckoutModal() {
       if (cart.length === 0) { showToast('Your shopping bag is empty!', 'warning'); return; }
+      const distEl = document.getElementById('co_district');
+      if (distEl) {
+        deliveryFee = (distEl.value.toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
+      }
       updateBillSummary();
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.remove('hidden');
@@ -657,7 +722,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
         body: JSON.stringify({ event_type: 'checkout_start' })
-      });
+      }).catch(() => {});
     }
     function closeCheckoutModal() {
       const modal = document.getElementById('checkoutModal');
@@ -681,13 +746,16 @@
           currentDiscount = result.discount;
           appliedPromoCode = result.code;
           msg.className = "text-[11px] font-bold text-emerald-600";
-          msg.innerText = `Coupon Applied: ৳${result.discount} Discount!`;
+          msg.innerText = `Coupon Applied: ৳${formatPrice(result.discount)} Discount!`;
           updateBillSummary();
         } else {
+          resetAppliedPromo();
           msg.className = "text-[11px] font-bold text-rose-500";
           msg.innerText = result.message;
+          updateBillSummary();
         }
       } catch (err) {
+        msg.className = "text-[11px] font-bold text-rose-500";
         msg.innerText = "Error applying coupon";
       }
     }
@@ -716,16 +784,15 @@
         const result = await res.json();
         if (result.status === 'success') {
           openOrderSuccessModal(result);
+          if (result.removed_items_notice) {
+            showToast(result.removed_items_notice, 'warning', 6000);
+          }
           cart = [];
-          saveCart();
-          currentDiscount = 0;
-          appliedPromoCode = '';
-          const promoInput = document.getElementById('promoInput');
-          if (promoInput) promoInput.value = '';
-          const promoMsg = document.getElementById('promoMsg');
-          if (promoMsg) { promoMsg.innerText = ''; promoMsg.className = ''; }
+          saveCart(false);
+          resetAppliedPromo();
           const form = document.getElementById('checkoutForm');
           if (form) form.reset();
+          deliveryFee = feeDhaka;
           closeCheckoutModal();
           closeCart();
         } else {
@@ -734,7 +801,7 @@
             saveCart();
             closeCheckoutModal();
           }
-          showToast(result.message, 'error');
+          showToast(result.message || 'Unable to place order.', 'error');
         }
       } catch (err) {
         showToast('Server communication error. Please try again.', 'error');
@@ -744,7 +811,6 @@
       }
     }
 
-    // Live Search with 300ms Debounce (shared by desktop + mobile search bars)
     let searchDebounceTimer = null;
     function handleLiveSearch(val, dropdownId) {
       clearTimeout(searchDebounceTimer);
@@ -763,20 +829,24 @@
           if (data.results && data.results.length > 0) {
             let html = '';
             data.results.forEach(item => {
+              const safeName = escapeHtml(item.name);
+              const safeCode = escapeHtml(item.code || 'N/A');
+              const safeUrl = escapeHtml(item.url);
+              const safeImg = item.image ? escapeHtml(item.image) : '';
               html += `
-                <a href="${item.url}" class="flex items-center gap-3 p-3 hover:bg-slate-50 transition">
+                <a href="${safeUrl}" class="flex items-center gap-3 p-3 hover:bg-slate-50 transition">
                   <div class="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 border flex items-center justify-center">
-                    ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+                    ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
                   </div>
-                  <div class="flex-1">
-                    <div class="text-xs font-bold text-slate-900 line-clamp-1">${item.name}</div>
-                    <div class="text-[10px] text-slate-400 font-mono">Code: ${item.code || 'N/A'}</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-slate-900 line-clamp-1">${safeName}</div>
+                    <div class="text-[10px] text-slate-400 font-mono">Code: ${safeCode}</div>
                     <div class="text-xs font-black text-amber-900 mt-0.5">
-                      ৳ ${item.effective_price}
-                      ${item.discount_price && item.price > item.discount_price ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">৳${item.price}</span>` : ''}
+                      ৳ ${formatPrice(item.effective_price)}
+                      ${item.discount_price && parseFloat(item.price) > parseFloat(item.discount_price) ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">৳${formatPrice(item.price)}</span>` : ''}
                     </div>
                   </div>
-                  <div class="text-[10px] font-bold ${item.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}">
+                  <div class="text-[10px] font-bold shrink-0 ${item.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}">
                     ${item.stock > 0 ? 'In Stock' : 'Out of Stock'}
                   </div>
                 </a>
@@ -804,14 +874,20 @@
       });
     });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeCheckoutModal();
+        closeOrderSuccessModal();
+        closeCart();
+        closeMobileNav();
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       renderCartUI();
       syncAddToBagButtons();
     });
 
-    // ============================================================
-    // PROFESSIONAL NOTIFICATIONS (replaces window.alert()/confirm())
-    // ============================================================
     const TOAST_ICONS = {
       success: '<i class="fa-solid fa-circle-check text-emerald-500"></i>',
       error:   '<i class="fa-solid fa-circle-exclamation text-rose-500"></i>',
@@ -827,7 +903,7 @@
         <div class="text-base mt-0.5 shrink-0">${TOAST_ICONS[type] || TOAST_ICONS.info}</div>
         <div class="flex-1 min-w-0">
           <div class="text-xs font-semibold text-slate-800 leading-relaxed">${message}</div>
-          ${action ? `<button type="button" class="toast-action-btn mt-1.5 text-[11px] font-bold text-amber-900 underline underline-offset-2">${action.label}</button>` : ''}
+          ${action ? `<button type="button" class="toast-action-btn mt-1.5 text-[11px] font-bold text-amber-900 underline underline-offset-2">${escapeHtml(action.label)}</button>` : ''}
         </div>
         <button type="button" class="toast-dismiss-btn text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
       `;
@@ -848,44 +924,48 @@
       lastOrderId = data.order_id;
       document.getElementById('osGreeting').innerText = `Order Confirmed! Thank you, ${data.customer_name}`;
       document.getElementById('osOrderId').innerText = data.order_id;
-      document.getElementById('osSubtotal').innerText = `৳ ${data.subtotal}`;
+      document.getElementById('osSubtotal').innerText = `৳ ${formatPrice(data.subtotal)}`;
 
       const discRow = document.getElementById('osDiscountRow');
       if (parseFloat(data.discount_amount) > 0) {
         discRow.classList.remove('hidden');
         discRow.classList.add('flex');
-        document.getElementById('osDiscount').innerText = `- ৳ ${data.discount_amount}`;
+        document.getElementById('osDiscount').innerText = `- ৳ ${formatPrice(data.discount_amount)}`;
       } else {
         discRow.classList.add('hidden');
         discRow.classList.remove('flex');
       }
 
-      document.getElementById('osDeliveryFee').innerText = `৳ ${data.delivery_fee}`;
-      document.getElementById('osOrderTotal').innerText = `৳ ${data.total}`;
+      document.getElementById('osDeliveryFee').innerText = `৳ ${formatPrice(data.delivery_fee)}`;
+      document.getElementById('osOrderTotal').innerText = `৳ ${formatPrice(data.total)}`;
 
       const addrParts = [data.shipping_address, data.thana, data.district].filter(Boolean);
       document.getElementById('osAddress').innerText = addrParts.join(', ');
       document.getElementById('osEta').innerText = `Estimated Delivery: ${data.estimated_delivery}`;
 
       const list = document.getElementById('osItemsList');
-      list.innerHTML = (data.items || []).map(it => `
-        <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-          <div class="w-10 h-10 rounded-lg bg-white border overflow-hidden shrink-0 flex items-center justify-center">
-            ${it.image ? `<img src="${it.image}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+      list.innerHTML = (data.items || []).map(it => {
+        const safeName = escapeHtml(it.name);
+        const safeCode = escapeHtml(it.code || '');
+        const safeImg = it.image ? escapeHtml(it.image) : '';
+        return `
+          <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="w-10 h-10 rounded-lg bg-white border overflow-hidden shrink-0 flex items-center justify-center">
+              ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-slate-900 line-clamp-1">${safeName}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${safeCode}</div>
+              <div class="text-[11px] font-semibold text-slate-600">${parseInt(it.qty, 10) || 1} &times; ৳${formatPrice(it.price)}</div>
+            </div>
+            <div class="text-xs font-black text-slate-900 shrink-0">৳${formatPrice(it.line_total)}</div>
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-slate-900 line-clamp-1">${it.name}</div>
-            <div class="text-[10px] text-slate-400 font-mono">${it.code || ''}</div>
-            <div class="text-[11px] font-semibold text-slate-600">${it.qty} &times; ৳${it.price}</div>
-          </div>
-          <div class="text-xs font-black text-slate-900 shrink-0">৳${it.line_total}</div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
-      const waDigits = (whatsappNumber || '').replace(/[^0-9]/g, '');
       const waLink = document.getElementById('osWhatsappLink');
-      if (waDigits) {
-        waLink.href = `https://wa.me/${waDigits}?text=${encodeURIComponent('Hi, I need help with my order ' + data.order_id)}`;
+      if (whatsappNumber) {
+        waLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hi, I need help with my order ' + data.order_id)}`;
         waLink.classList.remove('hidden');
       } else {
         waLink.classList.add('hidden');
@@ -913,6 +993,3 @@
   {% block extra_js %}{% endblock %}
 </body>
 </html>
-
-
-

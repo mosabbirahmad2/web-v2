@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load shop_extras %}
-{% block title %}{{ site_setting.site_name }} - Premium Mobile Covers & Accessories{% endblock %}
+{% block title %}{{ site_setting.meta_title|default:site_setting.site_name }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -10,6 +10,7 @@
 {% endblock %}
 
 {% block content %}
+{% if not search_query %}
 <section class="bg-white border-b border-slate-200/80">
   <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-6">
     <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 items-center">
@@ -82,13 +83,13 @@
               </a>
               {% empty %}
               <a href="{% url 'shop_category' cat.slug %}" aria-label="{{ cat.name }}" class="w-full h-full shrink-0 flex items-center justify-center bg-[#342b23]">
-                {% if cat.image %}<img src="{{ cat.image.url }}" alt="{{ cat.name }}" class="w-full h-full object-contain p-1.5">{% else %}<i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>{% endif %}
+                {% if cat.image %}<img src="{{ cat.image.url }}" alt="{{ cat.name }}" loading="lazy" class="w-full h-full object-contain p-1.5">{% else %}<i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>{% endif %}
               </a>
               {% endfor %}
             </div>
           </div>
         </div>
-        {% if cat.home_product_count > 1 %}
+        {% if cat.carousel_products|length > 1 %}
         <div class="flex justify-center items-center gap-1 mt-2.5 min-h-2" data-category-dots aria-label="{{ cat.home_product_count }} products in {{ cat.name }}">
           {% for product in cat.carousel_products %}
           <button type="button" data-category-dot aria-label="Show {{ product.name }}" class="w-1.5 h-1.5 rounded-full bg-white/55 transition-all duration-200"></button>
@@ -106,7 +107,9 @@
 </section>
 
 {% for section in showcase_sections %}
-{% with product_count=section.products.all|length %}
+{% with active_products=section.products.all %}
+{% with product_count=active_products|length %}
+{% if product_count > 0 %}
 <section class="py-2.5 sm:py-3">
   <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
     <div class="rounded-2xl p-3.5 sm:p-5 shadow-sm
@@ -140,7 +143,7 @@
       <div class="relative" data-carousel>
         <div class="overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar" data-carousel-track>
           <div class="flex gap-2.5 sm:gap-3 lg:gap-4">
-            {% for product in section.products.all %}
+            {% for product in active_products %}
             <div class="snap-start shrink-0 w-[calc(50%-0.3125rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)] lg:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.666%-0.833rem)]">
               <div class="text-slate-900 h-full">
                 {% include 'shop/partials/product_card.html' with product=product %}
@@ -166,20 +169,32 @@
     </div>
   </div>
 </section>
+{% endif %}
+{% endwith %}
 {% endwith %}
 {% endfor %}
+{% endif %}
 
-<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200 mt-4">
+<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200 {% if not search_query %}mt-4{% endif %}">
   <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
     <div class="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 pb-4 border-b border-slate-100">
       <div>
-        <span class="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">Full Catalog</span>
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+          {% if search_query %}Search Results{% else %}Full Catalog{% endif %}
+        </span>
         <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
-          {% if search_query %}Search Results for "{{ search_query }}"{% else %}All Products{% endif %}
+          {% if search_query %}Results for "{{ search_query }}"{% else %}All Products{% endif %}
         </h2>
       </div>
-      <div class="text-xs font-bold text-slate-500">
-        Total Products: <span class="text-slate-900 font-black">{{ products.paginator.count }}</span>
+      <div class="flex items-center gap-3">
+        {% if search_query %}
+        <a href="/" class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+          &times; Clear Search
+        </a>
+        {% endif %}
+        <div class="text-xs font-bold text-slate-500">
+          Total Products: <span class="text-slate-900 font-black">{{ products.paginator.count }}</span>
+        </div>
       </div>
     </div>
 
@@ -187,8 +202,11 @@
       {% for product in products %}
       {% include 'shop/partials/product_card.html' with product=product %}
       {% empty %}
-      <div class="col-span-full text-center py-20 text-slate-400">
-        No products found matching your search.
+      <div class="col-span-full text-center py-20 text-slate-400 space-y-3">
+        <p>No products found matching your search.</p>
+        {% if search_query %}
+        <a href="/" class="inline-block px-5 py-2.5 bg-theme text-white rounded-xl text-xs font-bold">Browse All Products</a>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -198,10 +216,10 @@
       <span>Page {{ products.number }} of {{ products.paginator.num_pages }}</span>
       <div class="flex gap-2">
         {% if products.has_previous %}
-        <a href="?page={{ products.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">&larr; Previous</a>
+        <a href="?page={{ products.previous_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">&larr; Previous</a>
         {% endif %}
         {% if products.has_next %}
-        <a href="?page={{ products.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Next &rarr;</a>
+        <a href="?page={{ products.next_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Next &rarr;</a>
         {% endif %}
       </div>
     </div>
@@ -239,10 +257,10 @@
     });
   })();
 
-  setInterval(() => {
+  function updateCountdowns() {
+    const now = Date.now();
     document.querySelectorAll('.countdown-timer').forEach(el => {
       const endTime = new Date(el.dataset.endtime).getTime();
-      const now = new Date().getTime();
       const diff = endTime - now;
       if (diff > 0) {
         const d = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -254,9 +272,13 @@
         el.querySelector('.cd-h').innerText = String(h).padStart(2, '0');
         el.querySelector('.cd-m').innerText = String(m).padStart(2, '0');
         el.querySelector('.cd-s').innerText = String(s).padStart(2, '0');
+      } else {
+        el.innerHTML = '<span class="px-2 py-1 rounded-md bg-rose-600 text-white text-[10px] font-bold">Ended</span>';
       }
     });
-  }, 1000);
+  }
+  updateCountdowns();
+  setInterval(updateCountdowns, 1000);
 
   (function initProductCarousels() {
     document.querySelectorAll('[data-carousel]').forEach((carousel) => {
