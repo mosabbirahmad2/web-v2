@@ -10,133 +10,106 @@
 {% endblock %}
 
 {% block content %}
-{% if not search_query %}
-<section class="bg-white border-b border-slate-200/80">
-  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-6">
-    <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 items-center">
-      <div>
-        <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 mb-3 sm:mb-4">
-          {{ site_setting.site_name }}
-        </span>
-        <h1 class="text-2xl sm:text-4xl font-black text-slate-900 leading-tight tracking-tight">
-          Premium Phone Covers &amp; Key Rings, Delivered to Your Door
-        </h1>
-        <p class="text-sm text-slate-500 mt-2.5 leading-relaxed max-w-md">
-          Carefully selected accessories at honest prices -- pay only when it arrives.
-        </p>
-        <div class="flex flex-wrap gap-3 mt-5">
-          <a href="#all-products-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-theme text-white rounded-2xl font-bold text-xs shadow-lg hover:opacity-95 transition">
-            Shop Collection
-          </a>
-          <a href="#category-section" class="min-h-[42px] inline-flex items-center justify-center px-6 py-3 bg-white border border-slate-200 text-slate-800 rounded-2xl font-bold text-xs hover:bg-slate-50 transition">
-            Browse Categories
-          </a>
+{% if not search_query and not selected_cat and not active_filter %}
+  <!-- 1. Dazzle-Style Hero Banner Carousel (Right-to-Left Auto Slide, Fixed 1200x500) -->
+  {% if hero_banners %}
+  <section class="w-full py-3 sm:py-5 relative" id="heroCarouselWrap">
+    <div class="relative">
+      <div class="dazzle-hero-track no-scrollbar" id="dazzleHeroTrack">
+        {% for hb in hero_banners %}
+        {% if hb.link %}
+        <a href="{{ hb.link }}" class="dazzle-hero-slide" aria-label="{{ hb.title|default:site_setting.site_name }}">
+          <img src="{{ hb.image.url }}" alt="{{ hb.title|default:site_setting.site_name }}" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+        </a>
+        {% else %}
+        <div class="dazzle-hero-slide">
+          <img src="{{ hb.image.url }}" alt="{{ hb.title|default:site_setting.site_name }}" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
         </div>
-        <div class="flex flex-wrap gap-x-5 gap-y-2 mt-5 text-[11px] font-semibold text-slate-600">
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash on Delivery</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-truck-fast text-amber-700"></i> Fast Nationwide Delivery</span>
-          <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-blue-600"></i> Quality Checked</span>
-        </div>
+        {% endif %}
+        {% endfor %}
       </div>
 
-      <div class="hidden lg:block relative">
-        <div class="rounded-[1.75rem] bg-theme p-8 aspect-[16/10] relative overflow-hidden flex items-center justify-center shadow-xl">
-          <div class="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10"></div>
-          <div class="absolute -bottom-14 -left-10 w-56 h-56 rounded-full bg-white/10"></div>
-          <div class="relative z-10 flex items-center gap-4">
-            <div class="w-24 h-36 bg-white/95 rounded-2xl shadow-2xl -rotate-6 flex items-center justify-center">
-              <i class="fa-solid fa-mobile-screen-button text-3xl text-slate-800"></i>
-            </div>
-            <div class="w-24 h-36 bg-white rounded-2xl shadow-2xl rotate-3 flex items-center justify-center translate-y-3">
-              <i class="fa-solid fa-key text-3xl text-amber-800"></i>
-            </div>
-          </div>
-          <div class="absolute bottom-5 left-5 right-5 bg-white/95 backdrop-blur rounded-xl px-4 py-2.5 flex items-center justify-between shadow-lg">
-            <span class="text-[11px] font-bold text-slate-900">Cash on Delivery</span>
-            <span class="text-[11px] font-black text-emerald-600">Nationwide</span>
-          </div>
-        </div>
-      </div>
+      {% if hero_banners|length > 1 %}
+      <button type="button" onclick="stepHeroSlide(-1)" aria-label="Previous banner"
+        class="hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 items-center justify-center text-slate-800 hover:bg-white z-10">
+        <i class="fa-solid fa-chevron-left text-xs"></i>
+      </button>
+      <button type="button" onclick="stepHeroSlide(1)" aria-label="Next banner"
+        class="hidden lg:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 items-center justify-center text-slate-800 hover:bg-white z-10">
+        <i class="fa-solid fa-chevron-right text-xs"></i>
+      </button>
+      {% endif %}
     </div>
-  </div>
-</section>
 
-<section id="category-section" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5">
-  <div class="rounded-2xl bg-[#292522] text-white px-4 sm:px-8 py-5 sm:py-7 overflow-hidden">
-    <div class="flex items-baseline justify-between mb-5 sm:mb-6">
-      <h2 class="text-xl sm:text-2xl font-black tracking-tight">Categories</h2>
-      <a href="#all-products-section" class="text-xs font-bold text-amber-200 hover:text-white transition">See all &rarr;</a>
-    </div>
-    <div class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-1">
-      {% for cat in categories %}
-      <div class="group shrink-0 w-[112px] sm:w-[142px] snap-start text-center" data-category-gallery>
-        <div class="rounded-[1.5rem] border border-amber-500/80 bg-[#342b23] p-2.5 sm:p-3 transition-colors group-hover:bg-[#403326]">
-          <div class="overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth rounded-xl aspect-square" data-category-track>
-            <div class="flex h-full transition-transform duration-300 ease-out" data-category-slides>
-              {% for product in cat.carousel_products %}
-              <a href="{% url 'shop_category' cat.slug %}" aria-label="Browse {{ cat.name }} products, including {{ product.name }}" class="w-full h-full shrink-0 snap-center flex items-center justify-center bg-[#342b23]">
-                {% if product.image %}
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="w-full h-full object-contain p-1.5">
-                {% else %}
-                <i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>
-                {% endif %}
-              </a>
-              {% empty %}
-              <a href="{% url 'shop_category' cat.slug %}" aria-label="{{ cat.name }}" class="w-full h-full shrink-0 flex items-center justify-center bg-[#342b23]">
-                {% if cat.image %}<img src="{{ cat.image.url }}" alt="{{ cat.name }}" loading="lazy" class="w-full h-full object-contain p-1.5">{% else %}<i class="fa-solid fa-shapes text-3xl text-amber-100/70"></i>{% endif %}
-              </a>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-        {% if cat.carousel_products|length > 1 %}
-        <div class="flex justify-center items-center gap-1 mt-2.5 min-h-2" data-category-dots aria-label="{{ cat.home_product_count }} products in {{ cat.name }}">
-          {% for product in cat.carousel_products %}
-          <button type="button" data-category-dot aria-label="Show {{ product.name }}" class="w-1.5 h-1.5 rounded-full bg-white/55 transition-all duration-200"></button>
-          {% endfor %}
-        </div>
-        {% else %}<div class="min-h-2 mt-2.5"></div>{% endif %}
-        <a href="{% url 'shop_category' cat.slug %}" class="block mt-1 text-xs sm:text-sm font-bold text-white group-hover:text-amber-200 transition line-clamp-1">{{ cat.name }}</a>
-        <span class="block text-[10px] sm:text-[11px] text-white/60 mt-0.5">{{ cat.home_product_count }} item{{ cat.home_product_count|pluralize }}</span>
-      </div>
-      {% empty %}
-      <p class="text-xs text-white/60">No categories yet.</p>
+    {% if hero_banners|length > 1 %}
+    <div class="dazzle-dots" id="dazzleHeroDots">
+      {% for hb in hero_banners %}
+      <button type="button" class="dazzle-dot {% if forloop.first %}is-active{% endif %}" onclick="goToHeroSlide({{ forloop.counter0 }})" aria-label="Go to slide {{ forloop.counter }}"></button>
       {% endfor %}
     </div>
-  </div>
-</section>
+    {% endif %}
+  </section>
+  {% endif %}
 
-{% for section in showcase_sections %}
-{% with active_products=section.products.all %}
-{% with product_count=active_products|length %}
-{% if product_count > 0 %}
-<section class="py-2.5 sm:py-3">
-  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
-    <div class="rounded-2xl p-3.5 sm:p-5 shadow-sm
-      {% if section.background_style == 'brown' %}bg-[#5C3214] text-white
-      {% elif section.background_style == 'dark' %}bg-slate-900 text-white
-      {% elif section.background_style == 'navy' %}bg-[#0B1F3A] text-white
-      {% elif section.background_style == 'emerald' %}bg-emerald-900 text-white
-      {% elif section.background_style == 'gradient' %}bg-gradient-to-r from-amber-700 via-orange-600 to-rose-600 text-white
-      {% elif section.background_style == 'cream' %}bg-[#FBF4E8] text-slate-900 border border-amber-100
-      {% elif section.background_style == 'rose' %}bg-[#FDEEF1] text-slate-900 border border-rose-100
-      {% elif section.background_style == 'slate' %}bg-slate-100 text-slate-900 border border-slate-200
-      {% else %}bg-white text-slate-900 border border-slate-200/80{% endif %}">
+  <!-- 2. Professional Shop by Category Grid -->
+  {% if categories %}
+  <section id="category-section" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-7">
+    <div class="flex items-baseline justify-between mb-4 sm:mb-5">
+      <div>
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Shop by Category</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Browse curated collections tailored for your style</p>
+      </div>
+      <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline underline-offset-2 shrink-0">View All &rarr;</a>
+    </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h2 class="text-lg sm:text-xl font-black tracking-tight">{{ section.title }}</h2>
+    <div class="cat-pro-grid">
+      {% for cat in categories %}
+      <a href="{% url 'shop_category' cat.slug %}" class="group bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 flex flex-col items-center text-center">
+        <div class="w-full aspect-square rounded-xl bg-[#F6F7F9] border border-slate-100 overflow-hidden flex items-center justify-center p-3 mb-3">
+          {% if cat.signature_image %}
+          <img src="{{ cat.signature_image }}" alt="{{ cat.name }}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+          {% else %}
+          <i class="fa-solid fa-shapes text-3xl text-slate-300"></i>
+          {% endif %}
+        </div>
+        <h3 class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</h3>
+        <span class="text-[11px] font-semibold text-slate-400 mt-0.5">{{ cat.home_product_count }} item{{ cat.home_product_count|pluralize }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- 3. Full-Width Edge-to-Edge Showcase Sections (Dazzle Style) -->
+  {% for section in showcase_sections %}
+  {% with active_products=section.products.all %}
+  {% with product_count=active_products|length %}
+  {% if product_count > 0 %}
+  <section class="w-full py-6 sm:py-8
+    {% if section.background_style == 'brown' %}bg-[#5C3214] text-white
+    {% elif section.background_style == 'dark' %}bg-slate-900 text-white
+    {% elif section.background_style == 'navy' %}bg-[#0B1F3A] text-white
+    {% elif section.background_style == 'emerald' %}bg-emerald-900 text-white
+    {% elif section.background_style == 'gradient' %}bg-gradient-to-r from-amber-700 via-orange-600 to-rose-600 text-white
+    {% elif section.background_style == 'cream' %}bg-[#FBF4E8] text-slate-900 border-y border-amber-100
+    {% elif section.background_style == 'rose' %}bg-[#FDEEF1] text-slate-900 border-y border-rose-100
+    {% elif section.background_style == 'slate' %}bg-slate-100 text-slate-900 border-y border-slate-200
+    {% else %}bg-white text-slate-900 border-y border-slate-200/80{% endif %}">
+    <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4 sm:mb-5">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h2 class="text-xl sm:text-2xl font-black tracking-tight">{{ section.title }}</h2>
           {% if section.has_countdown and section.end_time %}
           <div class="flex items-center gap-1 text-[10px] sm:text-[11px] font-mono font-black countdown-timer" data-endtime="{{ section.end_time|date:'c' }}">
-            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-d leading-none">00</span><span class="opacity-50">:</span>
-            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-h leading-none">00</span><span class="opacity-50">:</span>
-            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-m leading-none">00</span><span class="opacity-50">:</span>
-            <span class="bg-slate-900 text-white px-1.5 py-1 rounded-md cd-s leading-none">00</span>
+            <span class="bg-slate-900 text-white px-2 py-1 rounded-md cd-d leading-none">00</span><span class="opacity-60">:</span>
+            <span class="bg-slate-900 text-white px-2 py-1 rounded-md cd-h leading-none">00</span><span class="opacity-60">:</span>
+            <span class="bg-slate-900 text-white px-2 py-1 rounded-md cd-m leading-none">00</span><span class="opacity-60">:</span>
+            <span class="bg-slate-900 text-white px-2 py-1 rounded-md cd-s leading-none">00</span>
           </div>
           {% endif %}
         </div>
-        <a href="#all-products-section" class="text-xs sm:text-sm font-bold inline-flex items-center gap-1 shrink-0 opacity-90 hover:opacity-100 hover:underline underline-offset-2">
-          See All <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        <a href="#all-products-section" class="px-4 py-2 rounded-xl bg-white text-slate-900 text-xs font-bold shadow-sm hover:bg-slate-50 transition inline-flex items-center gap-1.5 shrink-0 border border-slate-200/60">
+          See all <i class="fa-solid fa-arrow-right text-[10px]"></i>
         </a>
       </div>
 
@@ -165,37 +138,80 @@
         {% endif %}
       </div>
 
-      <div class="flex justify-center gap-1.5 mt-3" data-carousel-dots></div>
+      <div class="flex justify-center gap-1.5 mt-4" data-carousel-dots></div>
     </div>
-  </div>
-</section>
-{% endif %}
-{% endwith %}
-{% endwith %}
-{% endfor %}
+  </section>
+  {% endif %}
+  {% endwith %}
+  {% endwith %}
+  {% endfor %}
+
+  <!-- 4. Customer Love (Real Approved Reviews Social Proof) -->
+  {% if customer_reviews %}
+  <section class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-6">
+    <div class="mb-3 flex items-baseline justify-between">
+      <h2 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Customer Love</h2>
+      <span class="text-[11px] font-bold text-emerald-600"><i class="fa-solid fa-circle-check"></i> Verified Buyers</span>
+    </div>
+    <div class="ux-4col-grid">
+      {% for r in customer_reviews %}
+      <a href="{% url 'product_detail' r.product.pk %}" class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm hover:border-slate-300 transition flex flex-col justify-between gap-2.5">
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1.5">
+            <span class="font-bold text-slate-900">{{ r.customer_name }}</span>
+            <span class="text-amber-500 font-bold text-[11px]">★ {{ r.rating }}.0</span>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed line-clamp-2">"{{ r.comment }}"</p>
+        </div>
+        <div class="text-[10px] font-bold text-amber-900 line-clamp-1 pt-2 border-t border-slate-100">
+          Bought: {{ r.product.name }}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 {% endif %}
 
-<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200 {% if not search_query %}mt-4{% endif %}">
-  <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6">
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 pb-4 border-b border-slate-100">
+<!-- 5. Full Catalog with Instant Filter Tabs -->
+<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200">
+  <div id="catalogAjaxWrap" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 transition-opacity duration-200">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-5 pb-4 border-b border-slate-100">
       <div>
         <span class="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-          {% if search_query %}Search Results{% else %}Full Catalog{% endif %}
+          {% if search_query %}Search Results{% elif selected_cat %}{{ selected_cat.name }}{% elif active_filter == 'under300' %}Budget Picks{% elif active_filter == 'sale' %}Hot Deals{% else %}Full Catalog{% endif %}
         </span>
         <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
-          {% if search_query %}Results for "{{ search_query }}"{% else %}All Products{% endif %}
+          {% if search_query %}Results for "{{ search_query }}"{% elif selected_cat %}{{ selected_cat.name }}{% elif active_filter == 'under300' %}Products Under ৳300{% elif active_filter == 'sale' %}On Sale Products{% else %}All Products{% endif %}
         </h2>
       </div>
       <div class="flex items-center gap-3">
-        {% if search_query %}
-        <a href="/" class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
-          &times; Clear Search
+        {% if search_query or selected_cat or active_filter %}
+        <a href="/" onclick="loadCatalogTab(event, '/#all-products-section')" class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+          &times; Reset Filters
         </a>
         {% endif %}
         <div class="text-xs font-bold text-slate-500">
-          Total Products: <span class="text-slate-900 font-black">{{ products.paginator.count }}</span>
+          Showing: <span class="text-slate-900 font-black">{{ products.paginator.count }}</span>
         </div>
       </div>
+    </div>
+
+    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-4 mb-2">
+      <a href="/#all-products-section" onclick="loadCatalogTab(event, '/#all-products-section')" class="px-4 py-2 rounded-full text-xs font-bold shrink-0 transition {% if not selected_cat and not active_filter and not search_query %}bg-amber-900 text-white{% else %}bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100{% endif %}">
+        All
+      </a>
+      {% for cat in categories %}
+      <a href="/?cat={{ cat.slug }}#all-products-section" onclick="loadCatalogTab(event, '/?cat={{ cat.slug }}#all-products-section')" class="px-4 py-2 rounded-full text-xs font-bold shrink-0 transition {% if selected_cat_slug == cat.slug %}bg-amber-900 text-white{% else %}bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100{% endif %}">
+        {{ cat.name }}
+      </a>
+      {% endfor %}
+      <a href="/?filter=under300#all-products-section" onclick="loadCatalogTab(event, '/?filter=under300#all-products-section')" class="px-4 py-2 rounded-full text-xs font-bold shrink-0 transition {% if active_filter == 'under300' %}bg-amber-900 text-white{% else %}bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100{% endif %}">
+        Under ৳300
+      </a>
+      <a href="/?filter=sale#all-products-section" onclick="loadCatalogTab(event, '/?filter=sale#all-products-section')" class="px-4 py-2 rounded-full text-xs font-bold shrink-0 transition {% if active_filter == 'sale' %}bg-rose-600 text-white{% else %}bg-rose-50 border border-rose-200 text-rose-700 hover:opacity-90{% endif %}">
+        On Sale
+      </a>
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
@@ -203,10 +219,8 @@
       {% include 'shop/partials/product_card.html' with product=product %}
       {% empty %}
       <div class="col-span-full text-center py-20 text-slate-400 space-y-3">
-        <p>No products found matching your search.</p>
-        {% if search_query %}
+        <p>No products found matching your selection.</p>
         <a href="/" class="inline-block px-5 py-2.5 bg-theme text-white rounded-xl text-xs font-bold">Browse All Products</a>
-        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -216,10 +230,10 @@
       <span>Page {{ products.number }} of {{ products.paginator.num_pages }}</span>
       <div class="flex gap-2">
         {% if products.has_previous %}
-        <a href="?page={{ products.previous_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">&larr; Previous</a>
+        <a href="?{% if catalog_qs %}{{ catalog_qs }}&{% endif %}page={{ products.previous_page_number }}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">&larr; Previous</a>
         {% endif %}
         {% if products.has_next %}
-        <a href="?page={{ products.next_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Next &rarr;</a>
+        <a href="?{% if catalog_qs %}{{ catalog_qs }}&{% endif %}page={{ products.next_page_number }}#all-products-section" class="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Next &rarr;</a>
         {% endif %}
       </div>
     </div>
@@ -230,32 +244,98 @@
 
 {% block extra_js %}
 <script>
-  (function initCategoryGalleries() {
-    document.querySelectorAll('[data-category-gallery]').forEach((gallery) => {
-      const track = gallery.querySelector('[data-category-track]');
-      const dots = Array.from(gallery.querySelectorAll('[data-category-dot]'));
-      if (!track || !dots.length) return;
+  // Dazzle-Style Right-to-Left Auto-Sliding Hero Carousel
+  (function initHeroBannerCarousel() {
+    const track = document.getElementById('dazzleHeroTrack');
+    if (!track) return;
+    const slides = Array.from(track.querySelectorAll('.dazzle-hero-slide'));
+    const dots = Array.from(document.querySelectorAll('#dazzleHeroDots .dazzle-dot'));
+    if (slides.length <= 1) return;
 
-      function updateActiveDot() {
-        const active = Math.min(dots.length - 1, Math.round(track.scrollLeft / track.clientWidth));
-        dots.forEach((dot, index) => {
-          dot.classList.toggle('w-4', index === active);
-          dot.classList.toggle('bg-amber-300', index === active);
-          dot.classList.toggle('bg-white/55', index !== active);
+    let currentIdx = 0;
+    let timer = null;
+
+    function updateDots(idx) {
+      dots.forEach((d, i) => d.classList.toggle('is-active', i === idx));
+    }
+
+    window.goToHeroSlide = function(idx) {
+      currentIdx = (idx + slides.length) % slides.length;
+      const slide = slides[currentIdx];
+      const targetLeft = slide.offsetLeft - (track.clientWidth - slide.clientWidth) / 2;
+      track.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+      updateDots(currentIdx);
+    };
+
+    window.stepHeroSlide = function(delta) {
+      goToHeroSlide(currentIdx + delta);
+      restartTimer();
+    };
+
+    function startTimer() {
+      stopTimer();
+      timer = setInterval(() => {
+        goToHeroSlide(currentIdx + 1);
+      }, 4200);
+    }
+    function stopTimer() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+    function restartTimer() {
+      stopTimer();
+      startTimer();
+    }
+
+    track.addEventListener('mouseenter', stopTimer);
+    track.addEventListener('mouseleave', startTimer);
+    track.addEventListener('touchstart', stopTimer, { passive: true });
+    track.addEventListener('touchend', startTimer, { passive: true });
+
+    let scrollSync;
+    track.addEventListener('scroll', () => {
+      clearTimeout(scrollSync);
+      scrollSync = setTimeout(() => {
+        const center = track.scrollLeft + track.clientWidth / 2;
+        let closest = 0;
+        let minDist = Infinity;
+        slides.forEach((s, i) => {
+          const sCenter = s.offsetLeft + s.clientWidth / 2;
+          const dist = Math.abs(sCenter - center);
+          if (dist < minDist) { minDist = dist; closest = i; }
         });
-      }
-
-      dots.forEach((dot, index) => {
-        dot.addEventListener('click', () => track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' }));
-      });
-      let scrollTimer;
-      track.addEventListener('scroll', () => {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(updateActiveDot, 60);
-      });
-      updateActiveDot();
+        currentIdx = closest;
+        updateDots(closest);
+      }, 80);
     });
+
+    startTimer();
   })();
+
+  async function loadCatalogTab(e, url) {
+    if (e) e.preventDefault();
+    const wrap = document.getElementById('catalogAjaxWrap');
+    if (!wrap) { window.location.href = url; return; }
+    wrap.style.opacity = '0.55';
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const nextWrap = doc.getElementById('catalogAjaxWrap');
+      if (nextWrap) {
+        wrap.innerHTML = nextWrap.innerHTML;
+        syncAddToBagButtons();
+        if (window.history && window.history.pushState) {
+          window.history.pushState({}, '', url);
+        }
+      } else {
+        window.location.href = url;
+      }
+    } catch (err) {
+      window.location.href = url;
+    } finally {
+      wrap.style.opacity = '1';
+    }
+  }
 
   function updateCountdowns() {
     const now = Date.now();
@@ -304,10 +384,7 @@
         const dots = dotsWrap.querySelectorAll('.carousel-dot');
         const active = currentItem();
         dots.forEach((dot, i) => {
-          dot.classList.toggle('opacity-100', i === active);
-          dot.classList.toggle('w-4', i === active);
-          dot.classList.toggle('opacity-25', i !== active);
-          dot.classList.toggle('w-1.5', i !== active);
+          dot.classList.toggle('is-active', i === active);
         });
       }
       function buildDots() {
@@ -322,7 +399,7 @@
           const dot = document.createElement('button');
           dot.type = 'button';
           dot.setAttribute('aria-label', `Go to product ${i + 1}`);
-          dot.className = 'carousel-dot h-1.5 w-1.5 rounded-full bg-current opacity-25 transition-all duration-200';
+          dot.className = 'carousel-dot';
           dot.addEventListener('click', () => {
             const firstLeft = items[0].getBoundingClientRect().left;
             const itemLeft = items[i].getBoundingClientRect().left;

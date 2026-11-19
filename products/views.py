@@ -1,6 +1,7 @@
 import csv
 import ipaddress
 import json
+import mimetypes
 import os
 import re
 import uuid
@@ -24,9 +25,9 @@ from django.utils.html import strip_tags
 from django.views.decorators.http import require_POST
 
 from .models import (
-    Category, Product, ProductImage, ProductReview, Order, OrderItem,
-    AnalyticsEvent, PromoCode, ShowcaseSection, SiteSetting,
-    AdminLoginAttempt, SearchQuery, UniqueVisitorLog
+    BRAND_FONT_CHOICES, Category, Product, ProductImage, ProductReview,
+    Order, OrderItem, AnalyticsEvent, PromoCode, ShowcaseSection,
+    SiteSetting, HeroBanner, AdminLoginAttempt, SearchQuery, UniqueVisitorLog
 )
 
 BOT_USER_AGENTS = (
@@ -60,6 +61,20 @@ def with_rating_annotations(qs):
         _avg_rating=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
         _reviews_count=Count('reviews', filter=Q(reviews__is_approved=True), distinct=True),
     )
+
+
+def _sync_brand_meta_title(setting, old_name, new_name, posted_meta_title):
+    if posted_meta_title:
+        if (
+            new_name != old_name
+            and posted_meta_title == setting.meta_title
+            and (posted_meta_title.startswith(old_name) or posted_meta_title.startswith('Fantacy Tech'))
+        ):
+            return posted_meta_title.replace(old_name, new_name, 1).replace('Fantacy Tech', new_name, 1)
+        return posted_meta_title
+    if new_name != old_name:
+        return new_name
+    return setting.meta_title
 
 
 def rate_limit(requests_per_minute=60):
@@ -131,6 +146,8 @@ def home_view(request):
         except Exception:
             pass
 
+    hero_banners = list(HeroBanner.objects.filter(is_active=True).order_by('order', 'id'))
+
     categories = list(
         Category.objects.filter(is_active=True, parent__isnull=True)
         .prefetch_related(
@@ -162,19 +179,26 @@ def home_view(request):
         full_list = products_by_category[category.pk]
         category.carousel_products = full_list[:8]
         category.home_product_count = len(full_list)
+        if category.image:
+            category.signature_image = category.image.url
+        else:
+            category.signature_image = next((p.image.url for p in full_list if p.image), None)
 
     active_showcase_products = Prefetch(
         'products',
         queryset=with_rating_annotations(
-            Product.objects.filter(is_active=True).select_related('category')
+            Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
         ).order_by('-created_at'),
     )
     showcase_sections = ShowcaseSection.objects.filter(is_active=True).prefetch_related(active_showcase_products)
     valid_sections = [s for s in showcase_sections if not s.is_expired() and len(s.products.all()) > 0]
 
     search_query = request.GET.get('q', '').strip()
+    selected_cat_slug = request.GET.get('cat', '').strip()
+    active_filter = request.GET.get('filter', '').strip()
+
     products_list = with_rating_annotations(
-        Product.objects.filter(is_active=True).select_related('category')
+        Product.objects.filter(is_active=True).select_related('category').prefetch_related('images')
     ).order_by('-created_at')
 
     if search_query:
@@ -189,15 +213,48 @@ def home_view(request):
             | Q(description__icontains=search_query)
         )
 
+    selected_cat = None
+    if selected_cat_slug:
+        selected_cat = Category.objects.filter(slug=selected_cat_slug, is_active=True).first()
+        if selected_cat:
+            sub_ids = list(selected_cat.subcategories.filter(is_active=True).values_list('id', flat=True))
+            products_list = products_list.filter(Q(category=selected_cat) | Q(category_id__in=sub_ids))
+
+    if active_filter == 'under300':
+        products_list = products_list.filter(
+            Q(discount_price__isnull=False, discount_price__lte=Decimal('300.00'))
+            | Q(discount_price__isnull=True, price__lte=Decimal('300.00'))
+        )
+    elif active_filter == 'sale':
+        products_list = products_list.filter(discount_price__isnull=False, discount_price__lt=F('price'))
+    else:
+        active_filter = ''
+
     paginator = Paginator(products_list, 20)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
+    customer_reviews = list(
+        ProductReview.objects.filter(is_approved=True, rating__gte=4, product__is_active=True)
+        .select_related('product')
+        .order_by('-created_at')[:4]
+    )
+
+    catalog_qs = request.GET.copy()
+    catalog_qs.pop('page', None)
+    catalog_qs = catalog_qs.urlencode()
+
     return render(request, 'index.html', {
+        'hero_banners': hero_banners,
         'categories': categories,
         'showcase_sections': valid_sections,
         'products': page_obj,
         'search_query': search_query,
+        'selected_cat': selected_cat,
+        'selected_cat_slug': selected_cat_slug if selected_cat else '',
+        'active_filter': active_filter,
+        'catalog_qs': catalog_qs,
+        'customer_reviews': customer_reviews,
     })
 
 
@@ -237,7 +294,9 @@ def shop_category_view(request, slug):
     )
 
     sort = request.GET.get('sort', 'newest')
-    products = with_rating_annotations(products.select_related('category')).annotate(
+    products = with_rating_annotations(
+        products.select_related('category').prefetch_related('images')
+    ).annotate(
         _eff_price=effective_price_expr,
         _disc_amt=discount_amount_expr,
     )
@@ -275,7 +334,54 @@ def shop_category_view(request, slug):
     })
 
 
+def order_track_view(request):
+    order_id_q = request.GET.get('order_id', '').strip().upper()
+    phone_q = request.GET.get('phone', '').strip()
+    tracked_order = None
+    error_msg = ''
+    step_index = 0
+
+    if order_id_q or phone_q:
+        if not order_id_q or not phone_q:
+            error_msg = 'Please enter both your Order ID and mobile number.'
+        else:
+            input_digits = re.sub(r'\D', '', phone_q)[-10:]
+            candidate = Order.objects.filter(order_id__iexact=order_id_q).prefetch_related('items__product').first()
+            if candidate and len(input_digits) >= 8:
+                stored_digits = re.sub(r'\D', '', candidate.customer_phone)[-10:]
+                if stored_digits == input_digits:
+                    tracked_order = candidate
+                    status_map = {
+                        'Placed': 1,
+                        'On Hold': 1,
+                        'Confirmed': 2,
+                        'Shipped': 3,
+                        'Delivered': 4,
+                        'Completed': 4,
+                    }
+                    step_index = status_map.get(candidate.status, 0)
+            if not tracked_order:
+                error_msg = 'No matching order found. Please verify your Order ID and phone number.'
+
+    return render(request, 'shop/track_order.html', {
+        'order_id_q': order_id_q,
+        'phone_q': phone_q,
+        'tracked_order': tracked_order,
+        'step_index': step_index,
+        'error_msg': error_msg,
+    })
+
+
 def favicon_view(request):
+    setting = SiteSetting.get_settings()
+    if setting.logo:
+        try:
+            with setting.logo.open('rb') as f:
+                mime, _ = mimetypes.guess_type(setting.logo.name)
+                return HttpResponse(f.read(), content_type=mime or 'image/webp')
+        except Exception:
+            pass
+
     favicon_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'favicon.svg')
     try:
         with open(favicon_path, 'rb') as f:
@@ -322,7 +428,7 @@ def product_detail_view(request, pk):
         except Exception:
             pass
 
-    related_qs = Product.objects.filter(is_active=True).exclude(pk=product.pk).select_related('category')
+    related_qs = Product.objects.filter(is_active=True).exclude(pk=product.pk).select_related('category').prefetch_related('images')
     if product.category_id:
         related_qs = related_qs.filter(category=product.category)
     related_products = with_rating_annotations(related_qs).order_by('-created_at')[:5]
@@ -497,7 +603,7 @@ def place_order_api(request):
 
     setting = SiteSetting.get_settings()
     is_dhaka = (district.lower() == 'dhaka')
-    delivery_fee = setting.delivery_fee_dhaka if is_dhaka else setting.delivery_fee_outside
+    base_delivery_fee = setting.delivery_fee_dhaka if is_dhaka else setting.delivery_fee_outside
 
     try:
         with transaction.atomic():
@@ -549,6 +655,12 @@ def place_order_api(request):
                         discount_amount = Decimal(str(applied_promo.calculate_discount(subtotal=subtotal)))
                     else:
                         applied_promo = None
+
+            free_threshold = setting.free_delivery_threshold or Decimal('0.00')
+            if setting.enable_free_delivery and free_threshold > 0 and subtotal >= free_threshold:
+                delivery_fee = Decimal('0.00')
+            else:
+                delivery_fee = base_delivery_fee
 
             total_amount = max(Decimal('0.00'), subtotal - discount_amount) + Decimal(str(delivery_fee))
 
@@ -610,7 +722,7 @@ def place_order_api(request):
                 'subtotal': str(subtotal.quantize(Decimal('0.01'))),
                 'discount_amount': str(discount_amount.quantize(Decimal('0.01'))),
                 'delivery_fee': str(Decimal(str(delivery_fee)).quantize(Decimal('0.01'))),
-                'estimated_delivery': "1–2 Business Days" if is_dhaka else "2–4 Business Days",
+                'estimated_delivery': "1\u20132 Business Days" if is_dhaka else "2\u20134 Business Days",
                 'items': order_items_payload,
             }
             if invalid_product_ids:
@@ -659,11 +771,21 @@ def merchant_update_image(request):
         obj.banner = uploaded
         obj.save()
         new_url = obj.banner.url if obj.banner else ''
+    elif model_type == 'hero_banner':
+        obj = get_object_or_404(HeroBanner, pk=object_id)
+        obj.image = uploaded
+        obj.save()
+        new_url = obj.image.url if obj.image else ''
     elif model_type == 'site_logo':
         obj = SiteSetting.get_settings()
         obj.logo = uploaded
         obj.save()
         new_url = obj.logo.url if obj.logo else ''
+    elif model_type == 'site_hero':
+        obj = SiteSetting.get_settings()
+        obj.hero_image = uploaded
+        obj.save()
+        new_url = obj.hero_image.url if obj.hero_image else ''
     else:
         return JsonResponse({'status': 'error', 'message': f'Unsupported model_type: {model_type}'}, status=400)
 
@@ -869,10 +991,7 @@ def merchant_edit_product(request, pk):
                 product.product_code = p_code
 
         cat_id = request.POST.get('category')
-        if cat_id:
-            product.category = get_object_or_404(Category, pk=cat_id)
-        else:
-            product.category = None
+        product.category = get_object_or_404(Category, pk=cat_id) if cat_id else None
         product.description = request.POST.get('description', '').strip()
         product.price = Decimal(str(request.POST.get('price', product.price)))
         d_price = request.POST.get('discount_price')
@@ -881,7 +1000,14 @@ def merchant_edit_product(request, pk):
         product.badge_tag = request.POST.get('badge_tag', '').strip()
         product.is_featured = bool(request.POST.get('is_featured'))
 
-        if 'main_image' in request.FILES:
+        if request.POST.get('remove_main_image') == '1' and 'main_image' not in request.FILES:
+            if product.image:
+                try:
+                    product.image.delete(save=False)
+                except Exception:
+                    pass
+            product.image = None
+        elif 'main_image' in request.FILES:
             product.image = request.FILES['main_image']
 
         product.save()
@@ -926,12 +1052,15 @@ def bulk_product_action(request):
     if product_ids and action:
         if action == 'activate':
             Product.objects.filter(id__in=product_ids).update(is_active=True)
+            cache.delete('cart_upsell_products')
             messages.success(request, f'Activated {len(product_ids)} products.')
         elif action == 'deactivate':
             Product.objects.filter(id__in=product_ids).update(is_active=False)
+            cache.delete('cart_upsell_products')
             messages.success(request, f'Deactivated {len(product_ids)} products.')
         elif action == 'delete':
             Product.objects.filter(id__in=product_ids).delete()
+            cache.delete('cart_upsell_products')
             messages.success(request, f'Deleted {len(product_ids)} products.')
     return redirect('merchant_products')
 
@@ -973,14 +1102,31 @@ def merchant_category_detail(request, pk):
         action = request.POST.get('action')
         if action == 'update_category':
             category.name = request.POST.get('name', category.name).strip()
-            category.short_description = request.POST.get('short_description', category.short_description).strip()
-            category.meta_title = request.POST.get('meta_title', category.meta_title).strip()
-            category.meta_description = request.POST.get('meta_description', category.meta_description).strip()
-            category.meta_keywords = request.POST.get('meta_keywords', category.meta_keywords).strip()
-            if 'banner' in request.FILES:
+            category.short_description = (request.POST.get('short_description', category.short_description) or '').strip()
+            category.meta_title = (request.POST.get('meta_title', category.meta_title) or '').strip()
+            category.meta_description = (request.POST.get('meta_description', category.meta_description) or '').strip()
+            category.meta_keywords = (request.POST.get('meta_keywords', category.meta_keywords) or '').strip()
+
+            if request.POST.get('remove_banner') == '1' and 'banner' not in request.FILES:
+                if category.banner:
+                    try:
+                        category.banner.delete(save=False)
+                    except Exception:
+                        pass
+                category.banner = None
+            elif 'banner' in request.FILES:
                 category.banner = request.FILES['banner']
-            if 'image' in request.FILES:
+
+            if request.POST.get('remove_image') == '1' and 'image' not in request.FILES:
+                if category.image:
+                    try:
+                        category.image.delete(save=False)
+                    except Exception:
+                        pass
+                category.image = None
+            elif 'image' in request.FILES:
                 category.image = request.FILES['image']
+
             category.save()
             messages.success(request, 'Category updated successfully!')
             return redirect('merchant_category_detail', pk=category.pk)
@@ -1001,11 +1147,28 @@ def merchant_category_detail(request, pk):
             sub_pk = request.POST.get('sub_pk')
             sub = get_object_or_404(Category, pk=sub_pk, parent=category)
             sub.name = request.POST.get('name', sub.name).strip()
-            sub.short_description = request.POST.get('short_description', sub.short_description).strip()
-            if 'banner' in request.FILES:
+            sub.short_description = (request.POST.get('short_description', sub.short_description) or '').strip()
+
+            if request.POST.get('remove_sub_banner') == '1' and 'banner' not in request.FILES:
+                if sub.banner:
+                    try:
+                        sub.banner.delete(save=False)
+                    except Exception:
+                        pass
+                sub.banner = None
+            elif 'banner' in request.FILES:
                 sub.banner = request.FILES['banner']
-            if 'image' in request.FILES:
+
+            if request.POST.get('remove_sub_image') == '1' and 'image' not in request.FILES:
+                if sub.image:
+                    try:
+                        sub.image.delete(save=False)
+                    except Exception:
+                        pass
+                sub.image = None
+            elif 'image' in request.FILES:
                 sub.image = request.FILES['image']
+
             sub.save()
             messages.success(request, f'Sub-category "{sub.name}" updated successfully!')
             return redirect('merchant_category_detail', pk=category.pk)
@@ -1119,19 +1282,84 @@ def merchant_delete_section(request, pk):
     return redirect('merchant_sections')
 
 
+# --- HERO BANNER CAROUSEL CRUD (LOCKED 1200x500) ---
+@login_required(login_url='admin_login')
+@require_POST
+def merchant_add_hero_banner(request):
+    image = request.FILES.get('image')
+    title = request.POST.get('title', '').strip()
+    link = request.POST.get('link', '').strip()
+    try:
+        order = int(request.POST.get('order', 0) or 0)
+    except (ValueError, TypeError):
+        order = 0
+
+    if image:
+        HeroBanner.objects.create(title=title, image=image, link=link, order=order, is_active=True)
+        messages.success(request, 'Hero banner slide added (1200x500 px)!')
+    else:
+        messages.error(request, 'Please select a banner image.')
+    return redirect('merchant_customize_theme')
+
+
+@login_required(login_url='admin_login')
+@require_POST
+def merchant_edit_hero_banner(request, pk):
+    banner = get_object_or_404(HeroBanner, pk=pk)
+    banner.title = request.POST.get('title', banner.title).strip()
+    banner.link = request.POST.get('link', banner.link).strip()
+    try:
+        banner.order = int(request.POST.get('order', banner.order) or 0)
+    except (ValueError, TypeError):
+        pass
+    if 'image' in request.FILES:
+        banner.image = request.FILES['image']
+    banner.save()
+    messages.success(request, 'Hero banner slide updated!')
+    return redirect('merchant_customize_theme')
+
+
+@login_required(login_url='admin_login')
+@require_POST
+def merchant_toggle_hero_banner(request, pk):
+    banner = get_object_or_404(HeroBanner, pk=pk)
+    banner.is_active = not banner.is_active
+    banner.save(update_fields=['is_active'])
+    return redirect('merchant_customize_theme')
+
+
+@login_required(login_url='admin_login')
+@require_POST
+def merchant_delete_hero_banner(request, pk):
+    banner = get_object_or_404(HeroBanner, pk=pk)
+    banner.delete()
+    messages.success(request, 'Hero banner slide removed!')
+    return redirect('merchant_customize_theme')
+
+
 @login_required(login_url='admin_login')
 def merchant_settings(request):
     setting = SiteSetting.get_settings()
     if request.method == 'POST':
-        setting.site_name = request.POST.get('site_name', setting.site_name).strip()
+        old_name = setting.site_name
+        new_name = request.POST.get('site_name', old_name).strip() or old_name
+        setting.site_name = new_name
+        setting.meta_title = _sync_brand_meta_title(setting, old_name, new_name, request.POST.get('meta_title', '').strip())
         setting.contact_phone = request.POST.get('contact_phone', setting.contact_phone).strip()
         setting.whatsapp_number = request.POST.get('whatsapp_number', setting.whatsapp_number).strip()
         setting.whatsapp_username = request.POST.get('whatsapp_username', setting.whatsapp_username).strip()
         setting.contact_email = request.POST.get('contact_email', setting.contact_email).strip()
         setting.office_address = request.POST.get('office_address', setting.office_address).strip()
         setting.announcement_notice = request.POST.get('announcement_notice', setting.announcement_notice).strip()
-        setting.delivery_fee_dhaka = Decimal(request.POST.get('delivery_fee_dhaka', setting.delivery_fee_dhaka))
-        setting.delivery_fee_outside = Decimal(request.POST.get('delivery_fee_outside', setting.delivery_fee_outside))
+        setting.enable_free_delivery = (request.POST.get('enable_free_delivery') == 'yes')
+        try:
+            setting.delivery_fee_dhaka = Decimal(request.POST.get('delivery_fee_dhaka', setting.delivery_fee_dhaka))
+            setting.delivery_fee_outside = Decimal(request.POST.get('delivery_fee_outside', setting.delivery_fee_outside))
+            raw_thresh = request.POST.get('free_delivery_threshold', '').strip()
+            setting.free_delivery_threshold = Decimal(raw_thresh) if raw_thresh else Decimal('0.00')
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
         if request.POST.get('remove_logo') == '1' and 'logo' not in request.FILES:
             if setting.logo:
                 try:
@@ -1141,6 +1369,7 @@ def merchant_settings(request):
             setting.logo = None
         elif 'logo' in request.FILES:
             setting.logo = request.FILES['logo']
+
         setting.save()
         messages.success(request, 'Site settings updated successfully!')
         return redirect('merchant_settings')
@@ -1151,15 +1380,69 @@ def merchant_settings(request):
 @login_required(login_url='admin_login')
 def merchant_customize_theme(request):
     setting = SiteSetting.get_settings()
+    allowed_fonts = {f[0] for f in BRAND_FONT_CHOICES}
+
     if request.method == 'POST':
+        old_name = setting.site_name
+        new_name = request.POST.get('site_name', old_name).strip() or old_name
+        setting.site_name = new_name
+        setting.meta_title = _sync_brand_meta_title(setting, old_name, new_name, request.POST.get('meta_title', '').strip())
+        if 'meta_description' in request.POST:
+            setting.meta_description = request.POST.get('meta_description', '').strip()[:160]
+
+        setting.show_brand_name_with_logo = (request.POST.get('show_brand_name_with_logo') == 'yes')
+        picked_font = request.POST.get('brand_font', setting.brand_font).strip()
+        if picked_font in allowed_fonts:
+            setting.brand_font = picked_font
+
         setting.theme_color = request.POST.get('theme_color', setting.theme_color)
         setting.theme_mode = request.POST.get('theme_mode', setting.theme_mode)
         setting.enable_buy_now = (request.POST.get('enable_buy_now') == 'yes')
+
+        if 'announcement_notice' in request.POST:
+            setting.announcement_notice = request.POST.get('announcement_notice', '').strip()
+
+        setting.enable_free_delivery = (request.POST.get('enable_free_delivery') == 'yes')
+        try:
+            if 'delivery_fee_dhaka' in request.POST:
+                setting.delivery_fee_dhaka = Decimal(request.POST.get('delivery_fee_dhaka', setting.delivery_fee_dhaka))
+            if 'delivery_fee_outside' in request.POST:
+                setting.delivery_fee_outside = Decimal(request.POST.get('delivery_fee_outside', setting.delivery_fee_outside))
+            raw_thresh = request.POST.get('free_delivery_threshold', '').strip()
+            setting.free_delivery_threshold = Decimal(raw_thresh) if raw_thresh else Decimal('0.00')
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
+        if 'contact_phone' in request.POST:
+            setting.contact_phone = request.POST.get('contact_phone', setting.contact_phone).strip()
+        if 'whatsapp_number' in request.POST:
+            setting.whatsapp_number = request.POST.get('whatsapp_number', setting.whatsapp_number).strip()
+        if 'contact_email' in request.POST:
+            setting.contact_email = request.POST.get('contact_email', setting.contact_email).strip()
+        if 'office_address' in request.POST:
+            setting.office_address = request.POST.get('office_address', setting.office_address).strip()
+
+        if request.POST.get('remove_logo') == '1' and 'logo' not in request.FILES:
+            if setting.logo:
+                try:
+                    setting.logo.delete(save=False)
+                except Exception:
+                    pass
+            setting.logo = None
+        elif 'logo' in request.FILES:
+            setting.logo = request.FILES['logo']
+
         setting.save()
-        messages.success(request, 'Theme customization saved successfully!')
+        messages.success(request, 'Website customization saved successfully!')
         return redirect('merchant_customize_theme')
 
-    return render(request, 'merchant/customize_theme.html', {'setting': setting, 'active_menu': 'themes'})
+    hero_banners = HeroBanner.objects.all().order_by('order', 'id')
+    return render(request, 'merchant/customize_theme.html', {
+        'setting': setting,
+        'hero_banners': hero_banners,
+        'brand_fonts': BRAND_FONT_CHOICES,
+        'active_menu': 'themes',
+    })
 
 
 @login_required(login_url='admin_login')

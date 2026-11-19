@@ -2,7 +2,7 @@ import os
 import re
 import uuid
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 
 from django.db import models
 from django.utils.text import slugify
@@ -39,9 +39,50 @@ def optimize_image(image_field, max_size=(1000, 1000), quality=88):
         pass
 
 
+def optimize_exact_banner(image_field, target_size=(1200, 500), quality=90):
+    if not image_field or not hasattr(image_field, 'file'):
+        return
+    try:
+        img = Image.open(image_field)
+        if img.mode in ('P', 'LA', 'RGBA'):
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            rgba = img.convert('RGBA')
+            bg.paste(rgba, mask=rgba.split()[-1])
+            img = bg
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        fitted = ImageOps.fit(img, target_size, method=Image.Resampling.LANCZOS)
+        out = BytesIO()
+        fitted.save(out, format='WEBP', quality=quality, optimize=True)
+        out.seek(0)
+
+        base_name = os.path.basename(image_field.name)
+        clean_name = os.path.splitext(base_name)[0]
+        image_field.file = ContentFile(out.read())
+        image_field.name = f"{clean_name}.webp"
+    except Exception:
+        pass
+
+
+BRAND_FONT_CHOICES = (
+    ('Plus Jakarta Sans', 'Plus Jakarta Sans (Modern Clean)'),
+    ('Montserrat', 'Montserrat (Bold Geometric)'),
+    ('Poppins', 'Poppins (Friendly Modern)'),
+    ('Playfair Display', 'Playfair Display (Luxury Serif)'),
+    ('Cinzel', 'Cinzel (Royal Boutique)'),
+    ('Cormorant Garamond', 'Cormorant Garamond (Editorial)'),
+    ('Space Grotesk', 'Space Grotesk (Tech Contemporary)'),
+    ('Syne', 'Syne (Avant-Garde Brand)'),
+    ('Oswald', 'Oswald (Strong Condensed)'),
+    ('Bebas Neue', 'Bebas Neue (Impact Display)'),
+)
+
+
 class SiteSetting(models.Model):
     site_name = models.CharField(max_length=100, default="Fantacy Tech")
     logo = models.ImageField(upload_to='site/', blank=True, null=True)
+    show_brand_name_with_logo = models.BooleanField(default=True)
+    brand_font = models.CharField(max_length=60, default="Plus Jakarta Sans", choices=BRAND_FONT_CHOICES)
     contact_phone = models.CharField(max_length=30, default="01999999999")
     whatsapp_number = models.CharField(max_length=30, default="01999999999")
     whatsapp_username = models.CharField(max_length=100, default="fantacytech", blank=True)
@@ -49,13 +90,24 @@ class SiteSetting(models.Model):
     office_address = models.TextField(default="Dhaka, Bangladesh")
     announcement_notice = models.CharField(
         max_length=300,
-        default="Welcome to Fantacy Tech! Premium Phone Covers & Key Rings with Fast Home Delivery!",
+        default="Welcome to Fantacy Tech! Check your parcel on delivery — Cash on Delivery Nationwide!",
     )
     delivery_fee_dhaka = models.DecimalField(max_digits=6, decimal_places=2, default=70.00)
     delivery_fee_outside = models.DecimalField(max_digits=6, decimal_places=2, default=130.00)
+    enable_free_delivery = models.BooleanField(default=True)
+    free_delivery_threshold = models.DecimalField(max_digits=8, decimal_places=2, default=600.00)
     theme_color = models.CharField(max_length=30, default="#5C3214")
     theme_mode = models.CharField(max_length=10, default="light", choices=(('light', 'Light'), ('dark', 'Dark')))
     enable_buy_now = models.BooleanField(default=True)
+
+    # Kept for DB compatibility with migration 0022
+    hero_badge = models.CharField(max_length=80, blank=True, default="New Drop 2026")
+    hero_title = models.CharField(max_length=160, blank=True, default="Phone Covers & Key Rings Designed to Stand Out")
+    hero_subtitle = models.TextField(
+        blank=True,
+        default="Carefully crafted cases and everyday key rings at honest prices — inspect on delivery and pay only when you love it.",
+    )
+    hero_image = models.ImageField(upload_to='site/', blank=True, null=True)
 
     meta_title = models.CharField(max_length=200, blank=True, default="Fantacy Tech - Premium Mobile Covers & Accessories")
     meta_description = models.CharField(
@@ -73,6 +125,11 @@ class SiteSetting(models.Model):
         return f"{self.site_name} Settings"
 
     @property
+    def brand_font_google_query(self):
+        font = self.brand_font or "Plus Jakarta Sans"
+        return font.replace(" ", "+")
+
+    @property
     def whatsapp_link_number(self):
         digits = re.sub(r'\D', '', self.whatsapp_number or '')
         if not digits:
@@ -87,6 +144,8 @@ class SiteSetting(models.Model):
         self.pk = 1
         if self.logo and not getattr(self.logo, '_committed', True):
             optimize_image(self.logo, max_size=(800, 300), quality=92)
+        if self.hero_image and not getattr(self.hero_image, '_committed', True):
+            optimize_image(self.hero_image, max_size=(1400, 900), quality=90)
         super().save(*args, **kwargs)
         cache.delete('global_site_settings')
 
@@ -94,6 +153,37 @@ class SiteSetting(models.Model):
     def get_settings(cls):
         setting, _ = cls.objects.get_or_create(pk=1)
         return setting
+
+
+class HeroBanner(models.Model):
+    BANNER_WIDTH = 1200
+    BANNER_HEIGHT = 500
+
+    title = models.CharField(max_length=120, blank=True, default="")
+    image = models.ImageField(upload_to='hero_banners/')
+    link = models.CharField(max_length=255, blank=True, default="")
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def save(self, *args, **kwargs):
+        if self.image and not getattr(self.image, '_committed', True):
+            optimize_exact_banner(self.image, target_size=(self.BANNER_WIDTH, self.BANNER_HEIGHT), quality=90)
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.image:
+            try:
+                self.image.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return self.title or f"Hero Banner #{self.pk}"
 
 
 class AdminLoginAttempt(models.Model):
@@ -220,6 +310,7 @@ class Product(models.Model):
         if self.image and not getattr(self.image, '_committed', True):
             optimize_image(self.image, max_size=(900, 900))
         super().save(*args, **kwargs)
+        cache.delete('cart_upsell_products')
 
     def delete(self, *args, **kwargs):
         for image_obj in self.images.all():
@@ -235,6 +326,7 @@ class Product(models.Model):
             except Exception:
                 pass
         super().delete(*args, **kwargs)
+        cache.delete('cart_upsell_products')
 
     @property
     def effective_price(self):
@@ -544,12 +636,41 @@ def auto_delete_old_site_logo_on_update(sender, instance, **kwargs):
     if not instance.pk:
         return
     try:
-        old_logo = SiteSetting.objects.get(pk=instance.pk).logo
+        old_obj = SiteSetting.objects.get(pk=instance.pk)
     except SiteSetting.DoesNotExist:
         return
-    if old_logo and old_logo != instance.logo:
+    if old_obj.logo and old_obj.logo != instance.logo:
         try:
-            old_logo.delete(save=False)
+            old_obj.logo.delete(save=False)
+        except Exception:
+            pass
+    if old_obj.hero_image and old_obj.hero_image != instance.hero_image:
+        try:
+            old_obj.hero_image.delete(save=False)
+        except Exception:
+            pass
+
+
+@receiver(pre_delete, sender=HeroBanner)
+def auto_delete_hero_banner_file(sender, instance, **kwargs):
+    if instance.image:
+        try:
+            instance.image.delete(save=False)
+        except Exception:
+            pass
+
+
+@receiver(pre_save, sender=HeroBanner)
+def auto_delete_old_hero_banner_on_update(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+    try:
+        old_img = HeroBanner.objects.get(pk=instance.pk).image
+    except HeroBanner.DoesNotExist:
+        return
+    if old_img and old_img != instance.image:
+        try:
+            old_img.delete(save=False)
         except Exception:
             pass
 

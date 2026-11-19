@@ -18,20 +18,27 @@
   {% if site_setting.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_setting.logo.url }}">{% endif %}
   {% endblock %}
 
+  {% if site_setting.logo %}
+  <link rel="icon" href="{{ site_setting.logo.url }}">
+  <link rel="apple-touch-icon" href="{{ site_setting.logo.url }}">
+  {% else %}
   <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+  {% endif %}
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {% if site_setting.brand_font and site_setting.brand_font != 'Plus Jakarta Sans' %}
+  <link href="https://fonts.googleapis.com/css2?family={{ site_setting.brand_font_google_query }}:wght@600;700;800&display=swap" rel="stylesheet">
+  {% endif %}
 
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    :root {
-      --brand-primary: {{ site_setting.theme_color|default:"#5C3214" }};
-    }
+    :root { --brand-primary: {{ site_setting.theme_color|default:"#5C3214" }}; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .brand-font { font-family: '{{ site_setting.brand_font|default:"Plus Jakarta Sans" }}', 'Plus Jakarta Sans', sans-serif; }
     .bg-theme { background-color: var(--brand-primary); }
     .text-theme { color: var(--brand-primary); }
     .border-theme { border-color: var(--brand-primary); }
@@ -44,7 +51,7 @@
     .nav-drawer-hidden { transform: translateX(-100%); }
 
     @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
-    .marquee-track { display: flex; width: max-content; animation: marquee 22s linear infinite; }
+    .marquee-track { display: flex; width: max-content; animation: marquee 24s linear infinite; }
     .marquee-wrap:hover .marquee-track { animation-play-state: paused; }
 
     @keyframes toastIn { from { opacity: 0; transform: translateY(-12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -72,11 +79,92 @@
     .btn-in-bag { background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; cursor: default; }
     .btn-in-bag:hover { background-color: #ecfdf5 !important; }
 
-    /* Dark Mode Storefront Overrides */
+    /* Boutique Card 2nd-Image Hover Peek */
+    .card-img-wrap { position: relative; }
+    .card-img-primary { transition: transform .3s ease, opacity .25s ease; }
+    .card-img-secondary { position: absolute; inset: 0; opacity: 0; transition: opacity .28s ease, transform .3s ease; }
+    .group:hover .card-img-wrap.has-alt .card-img-primary { opacity: 0; }
+    .group:hover .card-img-wrap.has-alt .card-img-secondary { opacity: 1; transform: scale(1.04); }
+    .group:hover .card-img-wrap:not(.has-alt) .card-img-primary { transform: scale(1.05); }
+
+    /* Dazzle-Style Hero Banner Carousel (Fixed 12:5 Aspect Ratio) */
+    .dazzle-hero-track {
+      display: flex;
+      gap: 0.75rem;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      padding: 0 0.75rem;
+    }
+    @media (min-width: 768px) {
+      .dazzle-hero-track { gap: 1rem; padding: 0 1.25rem; }
+    }
+    .dazzle-hero-slide {
+      flex: 0 0 92%;
+      scroll-snap-align: center;
+      aspect-ratio: 12 / 5;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #f1f5f9;
+      display: block;
+      position: relative;
+      box-shadow: 0 6px 20px -8px rgba(15, 23, 42, 0.25);
+    }
+    @media (min-width: 640px) { .dazzle-hero-slide { flex: 0 0 82%; border-radius: 1.25rem; } }
+    @media (min-width: 1024px) { .dazzle-hero-slide { flex: 0 0 68%; } }
+    .dazzle-hero-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .dazzle-dots { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 0.875rem; }
+    .dazzle-dot, .carousel-dot {
+      width: 7px; height: 7px; border-radius: 9999px;
+      background: rgba(148, 163, 184, 0.5);
+      transition: all 0.28s ease;
+      cursor: pointer; border: 0; padding: 0;
+    }
+    .dazzle-dot.is-active, .carousel-dot.is-active {
+      width: 24px;
+      background: linear-gradient(90deg, #f59e0b, #d97706);
+      opacity: 1 !important;
+    }
+
+    /* Professional Category Showcase Grid */
+    .cat-pro-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    @media (min-width: 640px) {
+      .cat-pro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    }
+    @media (min-width: 1024px) {
+      .cat-pro-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+    }
+
+    /* Responsive Reviews Grid */
+    .ux-4col-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 0.875rem; }
+    @media (min-width: 640px) { .ux-4col-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .ux-4col-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+    /* Mobile Thumb-Zone Bottom Bar */
+    .mobile-bottom-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+      background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px);
+      border-top: 1px solid #e2e8f0;
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      padding: 0.375rem 0.25rem;
+    }
+    @media (min-width: 768px) { .mobile-bottom-nav { display: none; } }
+    .footer-safe-pb { padding-bottom: 5.5rem; }
+    @media (min-width: 768px) { .footer-safe-pb { padding-bottom: 2rem; } }
+
+    .free-ship-track { width: 100%; height: 6px; border-radius: 9999px; background: #e2e8f0; overflow: hidden; }
+    .free-ship-fill { height: 100%; border-radius: 9999px; transition: width .35s ease, background-color .35s ease; }
+
     body.dark-theme { background-color: #020617; color: #f1f5f9; }
     body.dark-theme header,
     body.dark-theme header > div,
     body.dark-theme .marquee-wrap,
+    body.dark-theme .mobile-bottom-nav,
     body.dark-theme #cartDrawer,
     body.dark-theme #mobileNavDrawer,
     body.dark-theme #checkoutModal > div,
@@ -99,24 +187,19 @@
     body.dark-theme #cartDrawer .bg-\[\#FAF9F5\],
     body.dark-theme #mobileNavDrawer .bg-\[\#FAF9F5\],
     body.dark-theme #cartDrawer .bg-white,
+    body.dark-theme #cartDrawer .bg-slate-50,
     body.dark-theme #orderReceiptCard .bg-slate-50 {
       background-color: #1e293b !important;
       border-color: #334155 !important;
     }
     body.dark-theme .border-slate-200,
     body.dark-theme .border-slate-100,
-    body.dark-theme .border-slate-300 {
-      border-color: #334155 !important;
-    }
+    body.dark-theme .border-slate-300 { border-color: #334155 !important; }
     body.dark-theme .text-slate-900,
-    body.dark-theme .text-slate-800 {
-      color: #f8fafc !important;
-    }
+    body.dark-theme .text-slate-800 { color: #f8fafc !important; }
     body.dark-theme .text-slate-700,
     body.dark-theme .text-slate-600,
-    body.dark-theme .text-slate-500 {
-      color: #cbd5e1 !important;
-    }
+    body.dark-theme .text-slate-500 { color: #cbd5e1 !important; }
     body.dark-theme input,
     body.dark-theme select,
     body.dark-theme textarea {
@@ -131,9 +214,7 @@
       color: #fde68a !important;
     }
     body.dark-theme .text-amber-900,
-    body.dark-theme .text-amber-800 {
-      color: #fde68a !important;
-    }
+    body.dark-theme .text-amber-800 { color: #fde68a !important; }
     body.dark-theme .add-to-bag-btn:not(.btn-in-bag) {
       background-color: var(--brand-primary) !important;
       color: #ffffff !important;
@@ -145,7 +226,6 @@
 
   <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
 
-  <!-- Rich Order-Confirmed Receipt Modal -->
   <div id="orderSuccessModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-3 sm:p-4">
     <div id="orderReceiptCard" class="bg-white rounded-3xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="p-6 sm:p-7 text-center space-y-4 border-b border-slate-100">
@@ -212,9 +292,9 @@
             Continue Shopping
           </button>
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" onclick="window.print()" class="py-2.5 border border-slate-200 rounded-2xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition">
-              <i class="fa-solid fa-print"></i> Print Receipt
-            </button>
+            <a href="{% url 'order_track' %}" class="py-2.5 border border-slate-200 rounded-2xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition text-center">
+              <i class="fa-solid fa-truck-fast"></i> Track Order
+            </a>
             <a id="osWhatsappLink" href="#" target="_blank" rel="noopener" class="py-2.5 border border-slate-200 rounded-2xl font-bold text-xs text-slate-700 hover:bg-slate-50 transition text-center">
               <i class="fa-brands fa-whatsapp text-emerald-600"></i> WhatsApp Support
             </a>
@@ -224,16 +304,19 @@
     </div>
   </div>
 
-  <!-- Mobile Slide-Out Category & Subcategory Drawer -->
+  <!-- Mobile Slide-Out Drawer -->
   <div id="mobileNavBackdrop" class="hidden fixed inset-0 bg-slate-900/60 z-[90]" onclick="closeMobileNav()"></div>
   <div id="mobileNavDrawer" class="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-2xl z-[100] cart-drawer nav-drawer-hidden flex flex-col">
     <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-[#FAF9F5]">
-      <span class="text-base font-black text-slate-900 uppercase tracking-tight">{{ site_setting.site_name }}</span>
+      <span class="brand-font text-base font-black text-slate-900 tracking-tight">{{ site_setting.site_name }}</span>
       <button type="button" onclick="closeMobileNav()" class="text-slate-400 hover:text-black text-xl p-1" aria-label="Close menu">&times;</button>
     </div>
     <div class="flex-1 overflow-y-auto p-3 space-y-1">
       <a href="/#all-products-section" onclick="closeMobileNav()" class="px-3.5 py-3 rounded-xl bg-amber-100/70 text-amber-900 font-bold text-sm min-h-[42px] flex items-center">
         All Products
+      </a>
+      <a href="{% url 'order_track' %}" onclick="closeMobileNav()" class="px-3.5 py-3 rounded-xl text-slate-700 hover:bg-slate-50 font-bold text-sm min-h-[42px] flex items-center gap-2">
+        <i class="fa-solid fa-truck-fast text-theme text-xs"></i> Track Order
       </a>
       {% for cat in global_categories %}
       <div class="border-b border-slate-100 last:border-0">
@@ -275,12 +358,13 @@
       <button type="button" onclick="openMobileNav()" aria-label="Open menu" class="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
         <i class="fa-solid fa-bars text-sm"></i>
       </button>
-      <a href="/" class="flex-1 flex items-center justify-center gap-1.5 min-w-0">
+      <a href="/" class="flex-1 flex items-center justify-center gap-2 min-w-0">
         {% if site_setting.logo %}
-        <img src="{{ site_setting.logo.url }}" alt="{{ site_setting.site_name }}" class="h-9 w-auto max-w-[180px] object-contain">
-        {% else %}
-        <span class="text-xl font-black italic tracking-tighter text-slate-900 uppercase truncate">
-          {{ site_setting.site_name }}<span class="text-[9px] not-italic font-bold align-super text-theme">™</span>
+        <img src="{{ site_setting.logo.url }}" alt="{{ site_setting.site_name }}" class="h-8 w-auto max-w-[110px] object-contain shrink-0">
+        {% endif %}
+        {% if not site_setting.logo or site_setting.show_brand_name_with_logo %}
+        <span class="brand-font text-lg font-black tracking-tight text-slate-900 truncate">
+          {{ site_setting.site_name }}
         </span>
         {% endif %}
       </a>
@@ -292,7 +376,7 @@
 
     <div class="md:hidden px-4 pb-3 relative">
       <form action="/" method="GET" class="relative flex items-center">
-        <input type="text" name="q" id="storeSearchMobile" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdownMobile')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-base focus:outline-none focus:border-slate-900 bg-slate-50/70">
+        <input type="text" name="q" id="storeSearchMobile" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdownMobile')" placeholder="Search phone cover, key ring, model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-base focus:outline-none focus:border-slate-900 bg-slate-50/70">
         <button type="submit" aria-label="Search" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
           <i class="fa-solid fa-magnifying-glass"></i>
         </button>
@@ -301,19 +385,20 @@
     </div>
 
     <div class="hidden md:flex w-full max-w-[1600px] mx-auto px-4 sm:px-6 h-20 items-center justify-between gap-4">
-      <a href="/" class="flex items-center gap-2 shrink-0">
+      <a href="/" class="flex items-center gap-2.5 shrink-0">
         {% if site_setting.logo %}
-        <img src="{{ site_setting.logo.url }}" alt="{{ site_setting.site_name }}" class="h-10 sm:h-11 w-auto max-w-[200px] object-contain">
-        {% else %}
-        <span class="text-2xl sm:text-3xl font-black italic tracking-tighter text-slate-900 uppercase">
-          {{ site_setting.site_name }}<span class="text-xs not-italic font-bold align-super text-theme">™</span>
+        <img src="{{ site_setting.logo.url }}" alt="{{ site_setting.site_name }}" class="h-10 sm:h-11 w-auto max-w-[140px] object-contain shrink-0">
+        {% endif %}
+        {% if not site_setting.logo or site_setting.show_brand_name_with_logo %}
+        <span class="brand-font text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+          {{ site_setting.site_name }}
         </span>
         {% endif %}
       </a>
 
       <div class="relative flex-1 max-w-xl mx-2">
         <form action="/" method="GET" class="relative flex items-center">
-          <input type="text" name="q" id="storeSearch" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdown')" placeholder="Search by name, SKU or model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-xs focus:outline-none focus:border-slate-900 bg-slate-50/70">
+          <input type="text" name="q" id="storeSearch" value="{{ search_query|default:'' }}" autocomplete="off" oninput="handleLiveSearch(this.value, 'searchDropdown')" placeholder="Search phone cover, key ring, model..." class="w-full h-11 pl-4 pr-14 rounded-full border border-slate-300 text-xs focus:outline-none focus:border-slate-900 bg-slate-50/70">
           <button type="submit" aria-label="Search" class="absolute right-1.5 top-1.5 h-8 px-4 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-full flex items-center justify-center transition shadow-sm">
             <i class="fa-solid fa-magnifying-glass"></i>
           </button>
@@ -321,10 +406,15 @@
         <div id="searchDropdown" class="hidden absolute left-0 right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
       </div>
 
-      <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
-        <i class="fa-solid fa-bag-shopping text-sm"></i>
-        <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
-      </button>
+      <div class="flex items-center gap-3 shrink-0">
+        <a href="{% url 'order_track' %}" class="px-3.5 py-2 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-truck-fast text-theme"></i> Track Order
+        </a>
+        <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
+          <i class="fa-solid fa-bag-shopping text-sm"></i>
+          <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+        </button>
+      </div>
     </div>
 
     <div class="hidden md:block bg-white border-t border-slate-100 px-4 sm:px-6">
@@ -379,7 +469,40 @@
       </div>
       <button type="button" onclick="toggleCart()" class="text-slate-400 hover:text-black text-xl p-1" aria-label="Close bag">&times;</button>
     </div>
-    <div id="cartItemsContainer" class="flex-1 p-5 overflow-y-auto space-y-3"></div>
+
+    <div id="freeDeliveryBanner" class="hidden px-5 py-3 bg-amber-50/70 border-b border-amber-200/60 space-y-1.5">
+      <div id="freeDeliveryText" class="text-[11px] font-bold text-slate-800"></div>
+      <div class="free-ship-track">
+        <div id="freeDeliveryFill" class="free-ship-fill" style="width: 0%; background-color: var(--brand-primary);"></div>
+      </div>
+    </div>
+
+    <div class="flex-1 p-5 overflow-y-auto space-y-4">
+      <div id="cartItemsContainer" class="space-y-3"></div>
+
+      {% if cart_upsell_products %}
+      <div id="cartUpsellBox" class="hidden pt-3 border-t border-slate-100 space-y-2">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Complete Your Look</div>
+        {% for u in cart_upsell_products %}
+        <div data-upsell-id="{{ u.id }}" class="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-10 h-10 rounded-lg bg-white border overflow-hidden shrink-0 flex items-center justify-center">
+              {% if u.image %}<img src="{{ u.image.url }}" alt="{{ u.name }}" class="w-full h-full object-cover">{% else %}<i class="fa-solid fa-box text-slate-300 text-xs"></i>{% endif %}
+            </div>
+            <div class="min-w-0">
+              <div class="text-[11px] font-bold text-slate-900 line-clamp-1">{{ u.name }}</div>
+              <div class="text-[11px] font-black text-amber-900">৳ {{ u.effective_price|clean_price }}</div>
+            </div>
+          </div>
+          <button type="button" onclick="addToBag('{{ u.id }}', '{{ u.name|escapejs }}', '{{ u.effective_price }}', '{{ u.price }}', '{% if u.image %}{{ u.image.url }}{% endif %}', {{ u.stock }}, 1)" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-black text-white text-[10px] font-bold shrink-0">
+            + Add
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
     <div class="p-5 border-t border-slate-100 bg-[#FAF9F5] space-y-3">
       <div class="flex justify-between items-center text-sm font-bold">
         <span>Items Subtotal</span><span id="cartTotalPrice">৳ 0</span>
@@ -447,6 +570,10 @@
           </div>
         </div>
 
+        <div class="text-[11px] font-semibold text-emerald-700 flex items-center justify-center gap-1.5 pt-0.5">
+          <i class="fa-solid fa-shield-halved"></i> Zero advance payment needed — inspect your parcel on delivery.
+        </div>
+
         <button type="submit" id="submitOrderBtn" class="w-full py-3.5 bg-theme text-white rounded-2xl font-bold text-xs hover:opacity-95 transition shadow-lg min-h-[46px]">
           Confirm Order (Cash on Delivery)
         </button>
@@ -454,10 +581,10 @@
     </div>
   </div>
 
-  <footer class="bg-slate-950 text-slate-400 text-xs pt-12 pb-8 mt-16 border-t border-slate-800">
+  <footer class="bg-slate-950 text-slate-400 text-xs pt-12 footer-safe-pb mt-16 border-t border-slate-800">
     <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
       <div class="space-y-3">
-        <p class="font-black text-white text-lg tracking-wider uppercase">{{ site_setting.site_name }}</p>
+        <p class="brand-font font-black text-white text-lg tracking-wider">{{ site_setting.site_name }}</p>
         <p class="leading-relaxed">{{ site_setting.meta_description|default:"Premium phone covers, key rings and accessories with Cash on Delivery nationwide." }}</p>
       </div>
       <div class="space-y-3">
@@ -473,9 +600,12 @@
       <div class="space-y-3">
         <h4 class="text-white font-bold text-[11px] uppercase tracking-wider">Support &amp; Delivery</h4>
         <ul class="space-y-2">
-          <li>Cash on Delivery Nationwide</li>
+          <li><a href="{% url 'order_track' %}" class="hover:text-white transition">Track Your Order</a></li>
           <li>Inside Dhaka: ৳{{ site_setting.delivery_fee_dhaka|clean_price }}</li>
           <li>Outside Dhaka: ৳{{ site_setting.delivery_fee_outside|clean_price }}</li>
+          {% if site_setting.enable_free_delivery and site_setting.free_delivery_threshold > 0 %}
+          <li class="text-emerald-400 font-semibold">Free Delivery on ৳{{ site_setting.free_delivery_threshold|clean_price }}+ orders</li>
+          {% endif %}
         </ul>
       </div>
       <div class="space-y-3">
@@ -489,6 +619,25 @@
     </div>
     <p class="text-center text-slate-600 mt-10">&copy; 2026 {{ site_setting.site_name }}. All Rights Reserved.</p>
   </footer>
+
+  <nav class="mobile-bottom-nav" aria-label="Quick Mobile Navigation">
+    <a href="/" class="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-bold text-slate-700 hover:text-amber-900">
+      <i class="fa-solid fa-house text-sm"></i><span>Home</span>
+    </a>
+    <button type="button" onclick="openMobileNav()" class="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-bold text-slate-700 hover:text-amber-900">
+      <i class="fa-solid fa-layer-group text-sm"></i><span>Categories</span>
+    </button>
+    <a href="{% url 'order_track' %}" class="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-bold text-slate-700 hover:text-amber-900">
+      <i class="fa-solid fa-truck-fast text-sm"></i><span>Track</span>
+    </a>
+    <button type="button" onclick="toggleCart()" class="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-bold text-slate-700 hover:text-amber-900">
+      <div class="relative">
+        <i class="fa-solid fa-bag-shopping text-sm"></i>
+        <span class="cart-badge absolute -top-1.5 -right-2.5 bg-slate-900 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
+      </div>
+      <span>Bag</span>
+    </button>
+  </nav>
 
   <script>
     function escapeHtml(str) {
@@ -531,6 +680,8 @@
     let lastOrderId = '';
     const feeDhaka = parseFloat("{{ site_setting.delivery_fee_dhaka|default:70 }}");
     const feeOutside = parseFloat("{{ site_setting.delivery_fee_outside|default:130 }}");
+    const enableFreeDelivery = {% if site_setting.enable_free_delivery %}true{% else %}false{% endif %};
+    const freeDeliveryThreshold = parseFloat("{{ site_setting.free_delivery_threshold|default:0 }}") || 0;
     const whatsappNumber = "{{ site_setting.whatsapp_link_number|default:'' }}";
     let deliveryFee = feeDhaka;
 
@@ -649,6 +800,46 @@
       cart.splice(idx, 1);
       saveCart();
     }
+
+    function updateFreeDeliveryUI(subtotal) {
+      const banner = document.getElementById('freeDeliveryBanner');
+      const textEl = document.getElementById('freeDeliveryText');
+      const fillEl = document.getElementById('freeDeliveryFill');
+      if (!banner || !textEl || !fillEl) return;
+      if (!enableFreeDelivery || freeDeliveryThreshold <= 0 || cart.length === 0) {
+        banner.classList.add('hidden');
+        return;
+      }
+      banner.classList.remove('hidden');
+      const pct = Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100));
+      fillEl.style.width = pct + '%';
+      if (subtotal >= freeDeliveryThreshold) {
+        fillEl.style.backgroundColor = '#059669';
+        textEl.innerHTML = '<span class="text-emerald-700"><i class="fa-solid fa-circle-check"></i> Unlocked! You qualify for FREE Nationwide Delivery!</span>';
+      } else {
+        fillEl.style.backgroundColor = 'var(--brand-primary)';
+        const rem = Math.max(0, freeDeliveryThreshold - subtotal);
+        textEl.innerHTML = `Add <strong>৳ ${formatPrice(rem)}</strong> more for <strong>FREE Delivery</strong>!`;
+      }
+    }
+
+    function syncCartUpsells() {
+      const box = document.getElementById('cartUpsellBox');
+      if (!box) return;
+      if (cart.length === 0) {
+        box.classList.add('hidden');
+        return;
+      }
+      let visibleCount = 0;
+      box.querySelectorAll('[data-upsell-id]').forEach(row => {
+        const uid = String(row.dataset.upsellId);
+        const alreadyInCart = cart.some(i => String(i.id) === uid);
+        row.classList.toggle('hidden', alreadyInCart);
+        if (!alreadyInCart) visibleCount++;
+      });
+      box.classList.toggle('hidden', visibleCount === 0);
+    }
+
     function renderCartUI() {
       const count = cart.reduce((a, b) => a + b.qty, 0);
       document.querySelectorAll('.cart-badge').forEach(b => { b.innerText = count; });
@@ -657,8 +848,10 @@
       if (!container || !totalSpan) return;
 
       if (cart.length === 0) {
-        container.innerHTML = `<div class="text-center py-16 text-slate-400 text-xs">Your shopping bag is empty</div>`;
+        container.innerHTML = `<div class="text-center py-14 text-slate-400 text-xs">Your shopping bag is empty</div>`;
         totalSpan.innerText = '৳ 0';
+        updateFreeDeliveryUI(0);
+        syncCartUpsells();
         return;
       }
       let total = 0, html = '';
@@ -691,13 +884,18 @@
       });
       container.innerHTML = html;
       totalSpan.innerText = `৳ ${formatPrice(total)}`;
+      updateFreeDeliveryUI(total);
+      syncCartUpsells();
     }
+
     function handleDistrictChange(dist) {
       deliveryFee = (String(dist || '').toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
       updateBillSummary();
     }
     function updateBillSummary() {
       const prodTotal = cart.reduce((a, b) => a + (b.price * b.qty), 0);
+      const isFree = enableFreeDelivery && freeDeliveryThreshold > 0 && prodTotal >= freeDeliveryThreshold;
+      const effectiveFee = isFree ? 0 : deliveryFee;
       const prodElem = document.getElementById('summary_prod_price');
       const discElem = document.getElementById('summary_discount');
       const feeElem = document.getElementById('summary_del_charge');
@@ -705,8 +903,12 @@
 
       if (prodElem) prodElem.innerText = `৳ ${formatPrice(prodTotal)}`;
       if (discElem) discElem.innerText = `- ৳ ${formatPrice(currentDiscount)}`;
-      if (feeElem) feeElem.innerText = `৳ ${formatPrice(deliveryFee)}`;
-      if (totalElem) totalElem.innerText = `৳ ${formatPrice(Math.max(0, prodTotal - currentDiscount) + deliveryFee)}`;
+      if (feeElem) {
+        feeElem.innerHTML = effectiveFee === 0
+          ? '<span class="text-emerald-600 font-black">FREE</span>'
+          : `৳ ${formatPrice(effectiveFee)}`;
+      }
+      if (totalElem) totalElem.innerText = `৳ ${formatPrice(Math.max(0, prodTotal - currentDiscount) + effectiveFee)}`;
     }
     function openCheckoutModal() {
       if (cart.length === 0) { showToast('Your shopping bag is empty!', 'warning'); return; }
@@ -936,7 +1138,8 @@
         discRow.classList.remove('flex');
       }
 
-      document.getElementById('osDeliveryFee').innerText = `৳ ${formatPrice(data.delivery_fee)}`;
+      const feeVal = parseFloat(data.delivery_fee);
+      document.getElementById('osDeliveryFee').innerText = feeVal === 0 ? 'FREE' : `৳ ${formatPrice(data.delivery_fee)}`;
       document.getElementById('osOrderTotal').innerText = `৳ ${formatPrice(data.total)}`;
 
       const addrParts = [data.shipping_address, data.thana, data.district].filter(Boolean);

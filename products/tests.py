@@ -457,3 +457,192 @@ class StorefrontAuditFixesTests(TestCase):
         cat_in_ctx = next(c for c in res.context['categories'] if c.pk == self.active_cat.pk)
         self.assertEqual(len(cat_in_ctx.carousel_products), 8)
         self.assertEqual(cat_in_ctx.home_product_count, 11)
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
+class UxPsychologyUpgradeTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.setting = SiteSetting.get_settings()
+        self.setting.free_delivery_threshold = Decimal('600.00')
+        self.setting.save()
+        self.cat = Category.objects.create(name="Covers", is_active=True)
+        self.cheap = Product.objects.create(
+            name="Budget Key Ring", price=Decimal('150.00'), stock=10, category=self.cat, is_active=True
+        )
+        self.expensive = Product.objects.create(
+            name="MagSafe Pro Case", price=Decimal('800.00'), discount_price=Decimal('650.00'),
+            stock=10, category=self.cat, is_active=True
+        )
+
+    def test_free_delivery_threshold_sets_delivery_fee_to_zero_when_met(self):
+        res = self.client.post(
+            reverse('place_order_api'),
+            data=json.dumps({
+                'name': 'Mosabbir',
+                'phone': '01999999999',
+                'district': 'Chittagong',
+                'address': 'Road 5',
+                'items': [{'id': self.expensive.id, 'qty': 1}],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(Decimal(data['delivery_fee']), Decimal('0.00'))
+        self.assertEqual(Decimal(data['total']), Decimal('650.00'))
+
+    def test_order_track_view_matches_order_id_and_phone_digits(self):
+        order = Order.objects.create(
+            customer_name="Rahim", customer_phone="01911223344",
+            district="Dhaka", shipping_address="Mirpur", total_amount=Decimal('220.00'),
+        )
+        res_ok = self.client.get(reverse('order_track'), {'order_id': order.order_id, 'phone': '+8801911223344'})
+        self.assertContains(res_ok, order.order_id)
+        self.assertEqual(res_ok.context['tracked_order'], order)
+
+        res_bad = self.client.get(reverse('order_track'), {'order_id': order.order_id, 'phone': '01700000000'})
+        self.assertIsNone(res_bad.context['tracked_order'])
+        self.assertContains(res_bad, 'No matching order found')
+
+    def test_home_quick_filters_under300_and_sale(self):
+        res_u = self.client.get(reverse('home'), {'filter': 'under300'})
+        names_u = [p.name for p in res_u.context['products']]
+        self.assertIn('Budget Key Ring', names_u)
+        self.assertNotIn('MagSafe Pro Case', names_u)
+
+        res_s = self.client.get(reverse('home'), {'filter': 'sale'})
+        names_s = [p.name for p in res_s.context['products']]
+        self.assertIn('MagSafe Pro Case', names_s)
+        self.assertNotIn('Budget Key Ring', names_s)
+
+    def test_product_card_hides_sku_and_shows_second_image_hover(self):
+        ProductImage.objects.create(product=self.cheap, image=make_test_image_file("alt.png"))
+        self.cheap.image = make_test_image_file("main.png")
+        self.cheap.save()
+        res = self.client.get(reverse('home'))
+        self.assertNotContains(res, f"SKU: {self.cheap.product_code}")
+        self.assertContains(res, 'card-img-secondary')
+@override_settings(CACHES=TEST_CACHES, STATICFILES_STORAGE=TEST_STATIC_STORAGE)
+class RedesignAndCustomizerTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.override = override_settings(MEDIA_ROOT=self._tmp.name)
+        self.override.enable()
+
+        self.setting = SiteSetting.get_settings()
+        self.staff = User.objects.create_user(username='admin2', password='pw', is_staff=True)
+        self.cat = Category.objects.create(
+            name="Key Rings", is_active=True,
+            image=make_test_image_file("cat_i.png"),
+            banner=make_test_image_file("cat_b.png"),
+        )
+        self.prod = Product.objects.create(
+            name="Anime Key Ring", price=Decimal('700.00'), stock=10,
+            category=self.cat, image=make_test_image_file("p_main.png"), is_active=True
+        )
+
+    def tearDown(self):
+        self.override.disable()
+        self._tmp.cleanup()
+
+    def test_hero_banner_enforces_exact_1200x500_dimensions(self):
+        from .models import HeroBanner
+        hb = HeroBanner.objects.create(
+            title="Eid Banner", image=make_test_image_file("wide.png", size=(800, 800)), link="/#all-products-section"
+        )
+        with Image.open(hb.image.path) as im:
+            self.assertEqual(im.size, (1200, 500))
+
+    def test_homepage_shows_dazzle_hero_carousel_and_hides_old_hero_and_trust_pillars(self):
+        from .models import HeroBanner
+        HeroBanner.objects.create(title="Slide 1", image=make_test_image_file("s1.png", size=(1200, 500)))
+        res = self.client.get(reverse('home'))
+        self.assertContains(res, 'dazzleHeroTrack')
+        self.assertNotContains(res, 'NEW DROP 2026')
+        self.assertNotContains(res, 'Check Before You Pay')
+
+    def test_showcase_section_is_full_width_and_uses_see_all_button(self):
+        sec = ShowcaseSection.objects.create(title="Trending Picks", background_style='brown', is_active=True)
+        sec.products.add(self.prod)
+        res = self.client.get(reverse('home'))
+        self.assertContains(res, 'See all')
+        self.assertContains(res, 'bg-[#5C3214] text-white')
+
+    def test_brand_name_and_font_render_beside_logo_and_favicon_updates(self):
+        self.client.login(username='admin2', password='pw')
+        res = self.client.post(reverse('merchant_customize_theme'), {
+            'site_name': 'Phoenix Hub',
+            'brand_font': 'Playfair Display',
+            'show_brand_name_with_logo': 'yes',
+            'theme_color': '#5C3214',
+            'theme_mode': 'light',
+            'enable_buy_now': 'yes',
+            'enable_free_delivery': 'yes',
+            'free_delivery_threshold': '500',
+            'delivery_fee_dhaka': '70',
+            'delivery_fee_outside': '130',
+            'contact_phone': '01999999999',
+            'whatsapp_number': '01999999999',
+            'contact_email': 'test@example.com',
+            'office_address': 'Dhaka',
+            'meta_title': 'Fantacy Tech - Premium Mobile Covers & Accessories',
+            'logo': make_test_image_file("bird.png"),
+        })
+        self.assertEqual(res.status_code, 302)
+        self.setting.refresh_from_db()
+        self.assertEqual(self.setting.brand_font, 'Playfair Display')
+        self.assertTrue(self.setting.meta_title.startswith('Phoenix Hub'))
+
+        home_res = self.client.get(reverse('home'))
+        self.assertContains(home_res, 'Phoenix Hub')
+        self.assertContains(home_res, self.setting.logo.url)
+        self.assertContains(home_res, 'Playfair+Display')
+
+        fav_res = self.client.get('/favicon.ico')
+        self.assertEqual(fav_res.status_code, 200)
+        self.assertIn('image/', fav_res['Content-Type'])
+
+    def test_enable_free_delivery_toggle_controls_checkout_fee(self):
+        self.setting.enable_free_delivery = False
+        self.setting.free_delivery_threshold = Decimal('600.00')
+        self.setting.save()
+        res = self.client.post(
+            reverse('place_order_api'),
+            data=json.dumps({
+                'name': 'Buyer', 'phone': '01999999999', 'district': 'Dhaka',
+                'address': 'Road 1', 'items': [{'id': self.prod.id, 'qty': 1}],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(Decimal(res.json()['delivery_fee']), self.setting.delivery_fee_dhaka)
+
+    def test_remove_product_main_image_and_category_images(self):
+        self.client.login(username='admin2', password='pw')
+        self.client.post(reverse('merchant_edit_product', args=[self.prod.pk]), {
+            'name': self.prod.name, 'price': '700.00', 'stock': '10', 'remove_main_image': '1',
+        })
+        self.prod.refresh_from_db()
+        self.assertFalse(bool(self.prod.image))
+
+        self.client.post(reverse('merchant_category_detail', args=[self.cat.pk]), {
+            'action': 'update_category', 'name': self.cat.name,
+            'remove_banner': '1', 'remove_image': '1',
+        })
+        self.cat.refresh_from_db()
+        self.assertFalse(bool(self.cat.banner))
+        self.assertFalse(bool(self.cat.image))
+
+    def test_hero_banner_crud_add_edit_toggle_delete(self):
+        from .models import HeroBanner
+        self.client.login(username='admin2', password='pw')
+        self.client.post(reverse('merchant_add_hero_banner'), {
+            'title': 'B1', 'link': '/#all-products-section', 'order': '1',
+            'image': make_test_image_file("b1.png", size=(1200, 500)),
+        })
+        hb = HeroBanner.objects.get(title='B1')
+        self.client.post(reverse('merchant_toggle_hero_banner', args=[hb.pk]))
+        hb.refresh_from_db()
+        self.assertFalse(hb.is_active)
+        self.client.post(reverse('merchant_delete_hero_banner', args=[hb.pk]))
+        self.assertFalse(HeroBanner.objects.filter(pk=hb.pk).exists())

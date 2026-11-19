@@ -7,6 +7,7 @@ urlpatterns = [
     path('category/<slug:slug>/', views.shop_category_view, name='shop_category'),
     path('product/<int:pk>/', views.product_detail_view, name='product_detail'),
     path('product/<int:pk>/review/', views.add_product_review, name='add_product_review'),
+    path('track-order/', views.order_track_view, name='order_track'),
 
     # Storefront APIs
     path('api/search/', views.search_api, name='search_api'),
@@ -51,7 +52,13 @@ urlpatterns = [
     path('mosabbiradmin/sections/<int:pk>/toggle/', views.merchant_toggle_section, name='merchant_toggle_section'),
     path('mosabbiradmin/sections/<int:pk>/delete/', views.merchant_delete_section, name='merchant_delete_section'),
 
-    # Settings & Theme Customization
+    # Hero Banners (Dazzle-Style Fixed 1200x500 Carousel)
+    path('mosabbiradmin/hero-banners/add/', views.merchant_add_hero_banner, name='merchant_add_hero_banner'),
+    path('mosabbiradmin/hero-banners/<int:pk>/edit/', views.merchant_edit_hero_banner, name='merchant_edit_hero_banner'),
+    path('mosabbiradmin/hero-banners/<int:pk>/toggle/', views.merchant_toggle_hero_banner, name='merchant_toggle_hero_banner'),
+    path('mosabbiradmin/hero-banners/<int:pk>/delete/', views.merchant_delete_hero_banner, name='merchant_delete_hero_banner'),
+
+    # Settings & Customize Website Hub
     path('mosabbiradmin/settings/', views.merchant_settings, name='merchant_settings'),
     path('mosabbiradmin/customize-theme/', views.merchant_customize_theme, name='merchant_customize_theme'),
 

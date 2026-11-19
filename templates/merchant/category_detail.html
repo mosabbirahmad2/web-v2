@@ -190,6 +190,7 @@
             <button type="button" id="subBannerEditExistingBtn" onclick="editExistingSubBanner()" class="hidden px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
               <i class="fa-solid fa-crop-simple"></i> Edit Existing
             </button>
+            <label id="subBannerRemoveLabel" class="hidden inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 cursor-pointer px-2"><input type="checkbox" id="subBannerRemoveCb" name="remove_sub_banner" value="1" class="rounded"> Remove</label>
             <button type="button" id="subBannerEditStagedBtn" onclick="reopenCropperForInput('modal_sub_banner', 16/5, 'subBannerPreviewImage', 'subBannerPreviewContainer', 'subBannerPlaceholder')" class="hidden px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
               <i class="fa-solid fa-crop-simple"></i> Edit Staged
             </button>
@@ -216,6 +217,7 @@
               <button type="button" id="subImageEditExistingBtn" onclick="editExistingSubImage()" class="hidden px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                 <i class="fa-solid fa-crop-simple"></i> Edit Existing
               </button>
+              <label id="subImageRemoveLabel" class="hidden inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 cursor-pointer px-2"><input type="checkbox" id="subImageRemoveCb" name="remove_sub_image" value="1" class="rounded"> Remove</label>
               <button type="button" id="subImageEditStagedBtn" onclick="reopenCropperForInput('modal_sub_image', 1, 'subImagePreviewImage', 'subImagePreviewContainer', 'subImagePlaceholder')" class="hidden px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                 <i class="fa-solid fa-crop-simple"></i> Edit Staged
               </button>
@@ -258,6 +260,10 @@
     document.getElementById('subImagePlaceholder').classList.remove('hidden');
     document.getElementById('subImageEditExistingBtn').classList.add('hidden');
     document.getElementById('subImageEditStagedBtn').classList.add('hidden');
+    document.getElementById('subBannerRemoveLabel')?.classList.add('hidden');
+    document.getElementById('subImageRemoveLabel')?.classList.add('hidden');
+    if (document.getElementById('subBannerRemoveCb')) document.getElementById('subBannerRemoveCb').checked = false;
+    if (document.getElementById('subImageRemoveCb')) document.getElementById('subImageRemoveCb').checked = false;
   }
 
   function openSubCategoryModal() {
@@ -285,12 +291,14 @@
       document.getElementById('subBannerPreviewContainer').classList.remove('hidden');
       document.getElementById('subBannerPlaceholder').classList.add('hidden');
       document.getElementById('subBannerEditExistingBtn').classList.remove('hidden');
+      document.getElementById('subBannerRemoveLabel')?.classList.remove('hidden');
     }
     if (imageUrl) {
       document.getElementById('subImagePreviewImage').src = imageUrl;
       document.getElementById('subImagePreviewContainer').classList.remove('hidden');
       document.getElementById('subImagePlaceholder').classList.add('hidden');
       document.getElementById('subImageEditExistingBtn').classList.remove('hidden');
+      document.getElementById('subImageRemoveLabel')?.classList.remove('hidden');
     }
     document.getElementById('createSubCategoryModal').classList.remove('hidden');
   }
