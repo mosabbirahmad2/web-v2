@@ -51,29 +51,32 @@
   </section>
   {% endif %}
 
-  <!-- 2. Professional Shop by Category Grid -->
+  <!-- 2. Professional Boutique Category Showcase -->
   {% if categories %}
   <section id="category-section" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-7">
-    <div class="flex items-baseline justify-between mb-4 sm:mb-5">
+    <div class="flex flex-wrap items-end justify-between gap-2 mb-4 sm:mb-5">
       <div>
+        <span class="inline-block text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 mb-1.5">Collections</span>
         <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Shop by Category</h2>
-        <p class="text-xs text-slate-500 mt-0.5">Browse curated collections tailored for your style</p>
       </div>
       <a href="#all-products-section" class="text-xs font-bold text-amber-900 hover:underline underline-offset-2 shrink-0">View All &rarr;</a>
     </div>
 
     <div class="cat-pro-grid">
       {% for cat in categories %}
-      <a href="{% url 'shop_category' cat.slug %}" class="group bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 flex flex-col items-center text-center">
-        <div class="w-full aspect-square rounded-xl bg-[#F6F7F9] border border-slate-100 overflow-hidden flex items-center justify-center p-3 mb-3">
+      <a href="{% url 'shop_category' cat.slug %}" class="group bg-white rounded-2xl border border-slate-200/90 p-2.5 sm:p-3 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 flex items-center gap-3.5">
+        <div class="w-20 h-20 rounded-xl studio-img-box overflow-hidden flex items-center justify-center p-2 shrink-0">
           {% if cat.signature_image %}
-          <img src="{{ cat.signature_image }}" alt="{{ cat.name }}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+          <img src="{{ cat.signature_image }}" alt="{{ cat.name }}" loading="lazy" class="studio-img-blend w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
           {% else %}
-          <i class="fa-solid fa-shapes text-3xl text-slate-300"></i>
+          <i class="fa-solid fa-shapes text-2xl text-slate-400"></i>
           {% endif %}
         </div>
-        <h3 class="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</h3>
-        <span class="text-[11px] font-semibold text-slate-400 mt-0.5">{{ cat.home_product_count }} item{{ cat.home_product_count|pluralize }}</span>
+        <div class="flex-1 min-w-0">
+          <h3 class="text-sm font-black text-slate-900 group-hover:text-amber-900 transition line-clamp-1">{{ cat.name }}</h3>
+          <p class="text-[11px] font-semibold text-slate-500 mt-0.5">{{ cat.home_product_count }} product{{ cat.home_product_count|pluralize }}</p>
+          <span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 mt-1.5">Explore &rarr;</span>
+        </div>
       </a>
       {% endfor %}
     </div>
@@ -174,7 +177,7 @@
 {% endif %}
 
 <!-- 5. Full Catalog with Instant Filter Tabs -->
-<section id="all-products-section" class="py-8 sm:py-10 bg-white border-t border-slate-200">
+<section id="all-products-section" class="py-8 sm:py-10 catalog-soft-bg border-t border-slate-200">
   <div id="catalogAjaxWrap" class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 transition-opacity duration-200">
     <div class="flex flex-wrap justify-between items-center gap-3 mb-5 pb-4 border-b border-slate-100">
       <div>

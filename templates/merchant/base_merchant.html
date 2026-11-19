@@ -5,16 +5,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Merchant Portal - {{ site_setting.site_name }}{% endblock %}</title>
+  {% if site_setting.logo %}
+  <link rel="icon" href="{{ site_setting.logo.url }}">
+  {% else %}
   <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+  {% endif %}
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  {% block merchant_fonts %}{% endblock %}
+
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Cropper.js for Interactive Image Cropping & Zooming -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
@@ -41,8 +44,7 @@
   </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 flex h-screen overflow-hidden">
-  
-  <!-- Toasts -->
+
   <div id="toastContainer" class="fixed top-5 right-5 z-50 space-y-2 pointer-events-none">
     {% if messages %}
       {% for message in messages %}
@@ -54,7 +56,6 @@
     {% endif %}
   </div>
 
-  <!-- Global Confirm Delete Modal -->
   <div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl text-center space-y-4">
       <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl">
@@ -81,12 +82,17 @@
         <button type="button" onclick="closeCropperModal()" class="text-slate-400 hover:text-black text-2xl leading-none">&times;</button>
       </div>
 
+      <div id="cropLockedBanner" class="hidden px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center gap-2">
+        <i class="fa-solid fa-lock"></i>
+        <span id="cropLockedBannerText">Locked Resolution: 1200 &times; 500 px (Fixed Aspect Ratio)</span>
+      </div>
+
       <div id="cropperCanvasWrap" class="h-72 sm:h-80 overflow-hidden bg-white border border-slate-200 rounded-2xl flex items-center justify-center relative">
         <img id="cropperTargetImage" src="" class="max-w-full block">
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+        <div id="cropRatioBar" class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
           <span class="text-slate-400 mr-1">Ratio:</span>
           <button type="button" data-crop-ratio="free" onclick="setCropperRatio(NaN, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">Free</button>
           <button type="button" data-crop-ratio="1" onclick="setCropperRatio(1, this)" class="crop-ratio-btn px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">1:1 Square</button>
@@ -140,18 +146,18 @@
     </div>
   </div>
 
-  <!-- Mobile sidebar backdrop -->
   <div id="merchantSidebarBackdrop" class="hidden lg:hidden fixed inset-0 bg-slate-900/60 z-30" onclick="closeMerchantSidebar()"></div>
 
-  <!-- Sidebar (slides in as a drawer on <lg, static column on lg+) -->
   <aside id="merchantSidebar" class="sidebar-hidden fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col justify-between overflow-y-auto shrink-0">
     <div>
       <div class="h-20 flex items-center px-6 border-b border-slate-100 gap-3">
-        <div class="w-10 h-10 rounded-xl bg-[#541DFF] text-white flex items-center justify-center font-black text-lg shadow-md shadow-purple-500/20">
-          FT
-        </div>
-        <div>
-          <span class="text-base font-black tracking-tight text-slate-900 block uppercase leading-none">
+        {% if site_setting.logo %}
+        <img src="{{ site_setting.logo.url }}" alt="{{ site_setting.site_name }}" class="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white p-0.5 shrink-0">
+        {% else %}
+        <div class="w-10 h-10 rounded-xl bg-[#541DFF] text-white flex items-center justify-center font-black text-lg shadow-md shadow-purple-500/20 shrink-0">FT</div>
+        {% endif %}
+        <div class="min-w-0">
+          <span class="text-base font-black tracking-tight text-slate-900 block uppercase leading-none truncate">
             {{ site_setting.site_name }}
           </span>
           <span class="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Merchant Portal</span>
@@ -183,7 +189,7 @@
           <i class="fa-solid fa-chart-line w-4 text-sm"></i> CEO Analytics
         </a>
         <a href="{% url 'merchant_customize_theme' %}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-slate-100 {% if active_menu == 'themes' %}active-nav{% endif %}">
-          <i class="fa-solid fa-palette w-4 text-sm"></i> Theme Colors
+          <i class="fa-solid fa-wand-magic-sparkles w-4 text-sm"></i> Customize Website
         </a>
         <a href="{% url 'merchant_settings' %}" class="flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-slate-100 {% if active_menu == 'settings' %}active-nav{% endif %}">
           <i class="fa-solid fa-gear w-4 text-sm"></i> Settings
@@ -217,7 +223,7 @@
         </a>
       </div>
     </header>
-    <main class="p-8">
+    <main class="p-4 sm:p-8">
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -268,22 +274,42 @@
 
     let cropperInstance = null;
     let cropState = {
-      mode: 'single_input',
-      inputEl: null,
-      imgEl: null,
-      containerEl: null,
-      placeholderEl: null,
-      onFileApplied: null,
-      ajaxConfig: null,
-      filename: 'edited_photo.webp',
-      baseZoomRatio: 1,
-      scaleX: 1,
-      scaleY: 1,
-      bgFill: 'white',
-      customSizeEdited: false,
-      lastCropRatio: 1,
-      initialRatio: 1
+      mode: 'single_input', inputEl: null, imgEl: null, containerEl: null,
+      placeholderEl: null, onFileApplied: null, ajaxConfig: null,
+      filename: 'edited_photo.webp', baseZoomRatio: 1, scaleX: 1, scaleY: 1,
+      bgFill: 'white', customSizeEdited: false, lastCropRatio: 1, initialRatio: 1,
+      locked: false, exactWidth: null, exactHeight: null
     };
+
+    function applyLockUI(opts) {
+      cropState.locked = !!(opts && opts.locked);
+      cropState.exactWidth = (opts && opts.exactWidth) ? parseInt(opts.exactWidth, 10) : null;
+      cropState.exactHeight = (opts && opts.exactHeight) ? parseInt(opts.exactHeight, 10) : null;
+
+      const ratioBar = document.getElementById('cropRatioBar');
+      const lockBanner = document.getElementById('cropLockedBanner');
+      const lockText = document.getElementById('cropLockedBannerText');
+      const wEl = document.getElementById('cropOutWidth');
+      const hEl = document.getElementById('cropOutHeight');
+      const lockBtn = document.getElementById('cropAspectLockBtn');
+
+      if (cropState.locked && cropState.exactWidth && cropState.exactHeight) {
+        if (ratioBar) ratioBar.classList.add('hidden');
+        if (lockBanner) lockBanner.classList.remove('hidden');
+        if (lockText) lockText.innerText = `Locked Resolution: ${cropState.exactWidth} × ${cropState.exactHeight} px (Cannot be changed)`;
+        wEl.value = cropState.exactWidth;
+        hEl.value = cropState.exactHeight;
+        wEl.readOnly = true;
+        hEl.readOnly = true;
+        if (lockBtn) lockBtn.disabled = true;
+      } else {
+        if (ratioBar) ratioBar.classList.remove('hidden');
+        if (lockBanner) lockBanner.classList.add('hidden');
+        wEl.readOnly = false;
+        hEl.readOnly = false;
+        if (lockBtn) lockBtn.disabled = false;
+      }
+    }
 
     function highlightRatioButton(ratio) {
       document.querySelectorAll('.crop-ratio-btn').forEach(btn => {
@@ -316,8 +342,8 @@
       }
     }
 
-    function setCropperRatio(ratio, btnEl) {
-      if (!cropperInstance) return;
+    function setCropperRatio(ratio) {
+      if (!cropperInstance || cropState.locked) return;
       cropState.customSizeEdited = false;
       cropperInstance.setAspectRatio(ratio);
       highlightRatioButton(ratio);
@@ -339,6 +365,7 @@
     }
 
     function toggleResizeAspectLock() {
+      if (cropState.locked) return;
       const btn = document.getElementById('cropAspectLockBtn');
       const locked = btn.dataset.locked === 'true';
       btn.dataset.locked = locked ? 'false' : 'true';
@@ -352,33 +379,25 @@
     }
 
     function handleResizeInput(which) {
+      if (cropState.locked) return;
       cropState.customSizeEdited = true;
       const locked = document.getElementById('cropAspectLockBtn').dataset.locked === 'true';
       if (!locked || !cropState.lastCropRatio) return;
       const wEl = document.getElementById('cropOutWidth');
       const hEl = document.getElementById('cropOutHeight');
-      if (which === 'w' && wEl.value) {
-        hEl.value = Math.max(16, Math.round(parseFloat(wEl.value) / cropState.lastCropRatio));
-      } else if (which === 'h' && hEl.value) {
-        wEl.value = Math.max(16, Math.round(parseFloat(hEl.value) * cropState.lastCropRatio));
-      }
+      if (which === 'w' && wEl.value) hEl.value = Math.max(16, Math.round(parseFloat(wEl.value) / cropState.lastCropRatio));
+      else if (which === 'h' && hEl.value) wEl.value = Math.max(16, Math.round(parseFloat(hEl.value) * cropState.lastCropRatio));
     }
 
-    function cropperRotate(deg) {
-      if (cropperInstance) cropperInstance.rotate(deg);
-    }
-
+    function cropperRotate(deg) { if (cropperInstance) cropperInstance.rotate(deg); }
     function cropperFlip(axis) {
       if (!cropperInstance) return;
       if (axis === 'x') { cropState.scaleX *= -1; cropperInstance.scaleX(cropState.scaleX); }
       else { cropState.scaleY *= -1; cropperInstance.scaleY(cropState.scaleY); }
     }
-
     function cropperResetAll() {
       if (!cropperInstance) return;
-      cropState.scaleX = 1;
-      cropState.scaleY = 1;
-      cropState.customSizeEdited = false;
+      cropState.scaleX = 1; cropState.scaleY = 1; cropState.customSizeEdited = false;
       cropperInstance.reset();
       cropperInstance.setAspectRatio(cropState.initialRatio);
       highlightRatioButton(cropState.initialRatio);
@@ -386,30 +405,23 @@
       document.getElementById('cropZoomPercent').innerText = '100%';
     }
 
-    function mountCropperWithSrc(src, aspectRatio) {
+    function mountCropperWithSrc(src, aspectRatio, opts) {
       const target = document.getElementById('cropperTargetImage');
       target.crossOrigin = 'anonymous';
       target.src = src;
-      cropState.scaleX = 1;
-      cropState.scaleY = 1;
-      cropState.customSizeEdited = false;
-      cropState.initialRatio = (aspectRatio === null || aspectRatio === undefined) ? NaN : aspectRatio;
+      cropState.scaleX = 1; cropState.scaleY = 1; cropState.customSizeEdited = false;
+      applyLockUI(opts || {});
+      cropState.initialRatio = (cropState.locked && cropState.exactWidth && cropState.exactHeight)
+        ? (cropState.exactWidth / cropState.exactHeight)
+        : ((aspectRatio === null || aspectRatio === undefined) ? NaN : aspectRatio);
       setCropBgFill('white');
       document.getElementById('globalCropperModal').classList.remove('hidden');
 
       if (cropperInstance) cropperInstance.destroy();
       cropperInstance = new Cropper(target, {
-        aspectRatio: cropState.initialRatio,
-        viewMode: 0,
-        dragMode: 'move',
-        autoCropArea: 0.9,
-        cropBoxResizable: true,
-        cropBoxMovable: true,
-        movable: true,
-        zoomable: true,
-        zoomOnWheel: true,
-        background: false,
-        responsive: true,
+        aspectRatio: cropState.initialRatio, viewMode: 0, dragMode: 'move', autoCropArea: 0.92,
+        cropBoxResizable: true, cropBoxMovable: true, movable: true, zoomable: true,
+        zoomOnWheel: true, background: false, responsive: true,
         ready() {
           const imgData = cropperInstance.getImageData();
           cropState.baseZoomRatio = (imgData.naturalWidth > 0) ? (imgData.width / imgData.naturalWidth) : 1;
@@ -426,6 +438,11 @@
           }
         },
         crop(e) {
+          if (cropState.locked && cropState.exactWidth && cropState.exactHeight) {
+            document.getElementById('cropOutWidth').value = cropState.exactWidth;
+            document.getElementById('cropOutHeight').value = cropState.exactHeight;
+            return;
+          }
           if (e.detail.width > 0 && e.detail.height > 0) {
             cropState.lastCropRatio = e.detail.width / e.detail.height;
             if (!cropState.customSizeEdited) {
@@ -437,7 +454,7 @@
       });
     }
 
-    function openCropper(input, aspectRatio, imgId, containerId, placeholderId, onApplied) {
+    function openCropper(input, aspectRatio, imgId, containerId, placeholderId, onApplied, opts) {
       if (input.files && input.files[0]) {
         cropState.mode = 'single_input';
         cropState.inputEl = input;
@@ -446,20 +463,16 @@
         cropState.placeholderEl = placeholderId ? document.getElementById(placeholderId) : null;
         cropState.onFileApplied = onApplied || null;
         cropState.filename = (input.files[0].name.replace(/\.[^/.]+$/, '') || 'image') + '.webp';
-
         const reader = new FileReader();
-        reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio);
+        reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio, opts);
         reader.readAsDataURL(input.files[0]);
       }
     }
 
-    function reopenCropperForInput(inputId, aspectRatio, imgId, containerId, placeholderId) {
+    function reopenCropperForInput(inputId, aspectRatio, imgId, containerId, placeholderId, opts) {
       const input = document.getElementById(inputId);
-      if (input && input.files && input.files[0]) {
-        openCropper(input, aspectRatio, imgId, containerId, placeholderId);
-      } else {
-        showMerchantToast('No staged file selected yet.', 'error');
-      }
+      if (input && input.files && input.files[0]) openCropper(input, aspectRatio, imgId, containerId, placeholderId, null, opts);
+      else showMerchantToast('No staged file selected yet.', 'error');
     }
 
     function openCropperForFile(file, aspectRatio, onApplyCallback) {
@@ -467,7 +480,7 @@
       cropState.onFileApplied = onApplyCallback;
       cropState.filename = (file.name.replace(/\.[^/.]+$/, '') || 'gallery') + '.webp';
       const reader = new FileReader();
-      reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio);
+      reader.onload = (e) => mountCropperWithSrc(e.target.result, aspectRatio, {});
       reader.readAsDataURL(file);
     }
 
@@ -475,17 +488,19 @@
       cropState.mode = 'ajax_existing';
       cropState.ajaxConfig = cfg;
       cropState.filename = `${cfg.modelType}_${cfg.objectId}.webp`;
-      mountCropperWithSrc(cfg.imageUrl, cfg.aspectRatio);
+      mountCropperWithSrc(cfg.imageUrl, cfg.aspectRatio, {
+        locked: !!cfg.locked, exactWidth: cfg.exactWidth || null, exactHeight: cfg.exactHeight || null
+      });
     }
 
     function applyCroppedImage() {
       if (!cropperInstance) return;
       const btn = document.getElementById('cropApplyBtn');
-      const outW = parseInt(document.getElementById('cropOutWidth').value, 10);
-      const outH = parseInt(document.getElementById('cropOutHeight').value, 10);
+      const outW = (cropState.locked && cropState.exactWidth) ? cropState.exactWidth : parseInt(document.getElementById('cropOutWidth').value, 10);
+      const outH = (cropState.locked && cropState.exactHeight) ? cropState.exactHeight : parseInt(document.getElementById('cropOutHeight').value, 10);
+
       const canvasOpts = {
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
+        imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
         fillColor: cropState.bgFill === 'white' ? '#FFFFFF' : 'transparent'
       };
       if (outW >= 16 && outW <= 4000) canvasOpts.width = outW;
@@ -493,21 +508,13 @@
 
       const canvas = cropperInstance.getCroppedCanvas(canvasOpts);
       if (!canvas) return;
-
       btn.disabled = true;
       btn.innerText = cropState.mode === 'ajax_existing' ? 'Saving...' : 'Applying...';
 
       const exportCanvas = (mime) => {
         canvas.toBlob(async (blob) => {
-          if (!blob && mime === 'image/webp') {
-            exportCanvas('image/png');
-            return;
-          }
-          if (!blob) {
-            btn.disabled = false;
-            btn.innerText = 'Apply Image';
-            return;
-          }
+          if (!blob && mime === 'image/webp') { exportCanvas('image/png'); return; }
+          if (!blob) { btn.disabled = false; btn.innerText = 'Apply Image'; return; }
           const ext = blob.type === 'image/png' ? '.png' : '.webp';
           const fname = cropState.filename.replace(/\.[^/.]+$/, '') + ext;
           const editedFile = new File([blob], fname, { type: blob.type });
@@ -516,7 +523,6 @@
             const dt = new DataTransfer();
             dt.items.add(editedFile);
             cropState.inputEl.files = dt.files;
-
             const previewUrl = URL.createObjectURL(blob);
             if (cropState.imgEl) cropState.imgEl.src = previewUrl;
             if (cropState.containerEl) cropState.containerEl.classList.remove('hidden');
@@ -534,9 +540,7 @@
             fd.append('image', editedFile);
             try {
               const res = await fetch('/mosabbiradmin/media/update-image/', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getMerchantCookie('csrftoken') },
-                body: fd
+                method: 'POST', headers: { 'X-CSRFToken': getMerchantCookie('csrftoken') }, body: fd
               });
               const data = await res.json();
               if (data.status === 'success') {
@@ -547,18 +551,12 @@
                 if (cfg.onSuccess) cfg.onSuccess(data.new_url);
                 showMerchantToast('Photo updated successfully!');
                 closeCropperModal();
-              } else {
-                showMerchantToast(data.message || 'Failed to update image.', 'error');
-              }
-            } catch (err) {
-              showMerchantToast('Network error while saving image.', 'error');
-            }
+              } else showMerchantToast(data.message || 'Failed to update image.', 'error');
+            } catch (err) { showMerchantToast('Network error while saving image.', 'error'); }
           }
-          btn.disabled = false;
-          btn.innerText = 'Apply Image';
+          btn.disabled = false; btn.innerText = 'Apply Image';
         }, mime, 0.92);
       };
-
       exportCanvas('image/webp');
     }
 
@@ -571,9 +569,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-

@@ -43,6 +43,9 @@
               <button type="button" id="detailBannerEditExistingBtn" onclick="openExistingImageCropper({ modelType: 'category_banner', objectId: '{{ category.pk }}', imageUrl: document.getElementById('detailBannerImage').src, aspectRatio: 16/5, targetImgIds: ['detailBannerImage'] })" class="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                 <i class="fa-solid fa-crop-simple"></i> Edit Existing
               </button>
+              <label class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 cursor-pointer px-2">
+                <input type="checkbox" name="remove_banner" value="1" class="rounded"> Remove
+              </label>
               {% endif %}
               <button type="button" id="detailBannerEditStagedBtn" onclick="reopenCropperForInput('detail_banner_input', 16/5, 'detailBannerImage', 'detailBannerContainer', 'detailBannerPlaceholder')" class="hidden px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                 <i class="fa-solid fa-crop-simple"></i> Edit Staged
@@ -71,6 +74,9 @@
                 <button type="button" id="detailImgEditExistingBtn" onclick="openExistingImageCropper({ modelType: 'category_image', objectId: '{{ category.pk }}', imageUrl: document.getElementById('detailImagePreview').src, aspectRatio: 1, targetImgIds: ['detailImagePreview'] })" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                   <i class="fa-solid fa-crop-simple"></i> Edit Existing
                 </button>
+                <label class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 cursor-pointer px-2">
+                  <input type="checkbox" name="remove_image" value="1" class="rounded"> Remove
+                </label>
                 {% endif %}
                 <button type="button" id="detailImgEditStagedBtn" onclick="reopenCropperForInput('detail_image_input', 1, 'detailImagePreview', 'detailImageContainer', 'detailImagePlaceholder')" class="hidden px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50">
                   <i class="fa-solid fa-crop-simple"></i> Edit Staged

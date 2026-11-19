@@ -270,6 +270,9 @@
               class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100 whitespace-nowrap">
               <i class="fa-solid fa-crop-simple"></i> Edit / Zoom / Resize
             </button>
+            <label class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 cursor-pointer px-2">
+              <input type="checkbox" name="remove_main_image" value="1" class="rounded"> Remove
+            </label>
           </div>
           {% endif %}
           <input type="file" id="editProductMainImgInput" name="main_image" accept="image/*" class="flex-1 min-w-[200px] text-xs text-slate-500 border rounded-xl p-2 bg-slate-50" onchange="openCropper(this, 1, 'editMainPreview', 'editMainPrevBox')">

@@ -1,40 +1,378 @@
 {% extends 'merchant/base_merchant.html' %}
-{% block title %}Customize Theme{% endblock %}
+{% block title %}Customize Website - {{ site_setting.site_name }}{% endblock %}
+{% block merchant_fonts %}
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;800&family=Cormorant+Garamond:wght@700&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Playfair+Display:wght@700;800&family=Poppins:wght@700;800&family=Space+Grotesk:wght@700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6">
-  <div>
-    <h1 class="text-2xl font-black text-slate-900">Customize Theme &amp; Brand Colors</h1>
-    <p class="text-xs text-slate-400 mt-1">Live branding adjustments and storefront aesthetics</p>
+<style>
+  .cw-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .cw-tab-btn {
+    padding: 0.65rem 1rem; border-radius: 0.875rem; font-size: 0.75rem; font-weight: 700;
+    border: 1px solid #e2e8f0; background: #ffffff; color: #475569; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 0.45rem;
+  }
+  .cw-tab-btn:hover { background: #f8fafc; color: #0f172a; }
+  .cw-tab-btn.is-active { background: #541DFF; color: #ffffff; border-color: #541DFF; box-shadow: 0 6px 16px -6px rgba(84,29,255,0.45); }
+  .cw-swatch { width: 28px; height: 28px; border-radius: 9999px; border: 2px solid #fff; box-shadow: 0 0 0 1px #cbd5e1; cursor: pointer; transition: transform .15s; }
+  .cw-swatch:hover { transform: scale(1.12); }
+</style>
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <!-- Studio Header -->
+  <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-4">
+    <div>
+      <h1 class="text-2xl font-black text-slate-900">Customize Website Studio</h1>
+      <p class="text-xs text-slate-400 mt-0.5">Design your brand header, fonts, Dazzle-style hero banners, colors, free delivery &amp; contact info</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'merchant_sections' %}" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100">Showcase Sections</a>
+      <a href="{% url 'merchant_categories' %}" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100">Categories</a>
+      <a href="/" target="_blank" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-black">View Live Store &rarr;</a>
+    </div>
   </div>
 
-  <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-    <form method="POST" class="space-y-6">
-      {% csrf_token %}
+  <!-- Live Header Mockup Preview -->
+  <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
+    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Live Storefront Header Preview</div>
+    <div class="border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-4 bg-[#FAF9F5]">
+      <div class="flex items-center gap-2.5 min-w-0">
+        {% if setting.logo %}
+        <img id="cwHeaderMockLogo" src="{{ setting.logo.url }}" alt="Logo" class="h-9 w-auto object-contain shrink-0">
+        {% endif %}
+        <span id="cwBrandPreviewText" style="font-family: '{{ setting.brand_font }}', sans-serif;" class="text-xl font-black text-slate-900 truncate">{{ setting.site_name }}</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-2">
+        <span id="cwMockBtn" style="background-color: {{ setting.theme_color }};" class="px-4 py-1.5 rounded-full text-white text-[11px] font-bold">Shop Button</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5-Tab Studio Switcher -->
+  <div class="cw-tabs" id="cwTabBar">
+    <button type="button" data-tab="brand" onclick="switchCwTab('brand')" class="cw-tab-btn is-active"><i class="fa-solid fa-font"></i> Brand, Logo &amp; Font</button>
+    <button type="button" data-tab="hero" onclick="switchCwTab('hero')" class="cw-tab-btn"><i class="fa-regular fa-images"></i> Hero Banner Slider ({{ hero_banners.count }})</button>
+    <button type="button" data-tab="theme" onclick="switchCwTab('theme')" class="cw-tab-btn"><i class="fa-solid fa-palette"></i> Theme &amp; Checkout</button>
+    <button type="button" data-tab="delivery" onclick="switchCwTab('delivery')" class="cw-tab-btn"><i class="fa-solid fa-truck-fast"></i> Free Delivery &amp; Ticker</button>
+    <button type="button" data-tab="contact" onclick="switchCwTab('contact')" class="cw-tab-btn"><i class="fa-solid fa-address-book"></i> Contact &amp; Footer</button>
+  </div>
+
+  <!-- TAB 2: HERO BANNER CAROUSEL MANAGER (Separate forms so forms are never nested) -->
+  <div id="cw-panel-hero" class="cw-panel hidden bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-4">
       <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Primary Theme Brand Color</label>
-        <div class="flex items-center gap-3">
-          <input type="color" name="theme_color" value="{{ setting.theme_color }}" id="colorInput" class="w-12 h-12 rounded-xl border p-1 cursor-pointer" oninput="document.getElementById('colorHex').innerText = this.value">
-          <span id="colorHex" class="font-mono text-sm font-bold text-slate-700">{{ setting.theme_color }}</span>
+        <h2 class="text-base font-black text-slate-900">Homepage Hero Banner Slider (Dazzle Style)</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Upload 5–7 wide banners that auto-slide right-to-left. Ratio &amp; resolution are locked so every slide looks uniform.</p>
+      </div>
+      <span class="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold">
+        <i class="fa-solid fa-lock"></i> Locked: 1200 &times; 500 px (12:5)
+      </span>
+    </div>
+
+    <form method="POST" action="{% url 'merchant_add_hero_banner' %}" enctype="multipart/form-data" class="p-4 sm:p-5 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 space-y-4">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Slide Title (Optional)</label>
+          <input type="text" name="title" placeholder="e.g. Eid Mega Offer" class="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Click Link URL (Optional)</label>
+          <input type="text" name="link" placeholder="e.g. /category/key-ring/" class="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Sort Order</label>
+          <input type="number" name="order" value="{{ hero_banners.count|add:1 }}" class="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none">
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-bold text-slate-800">Select Banner Image * <span class="text-rose-600">(Fixed 1200 &times; 500 px — Cannot be changed)</span></label>
+        <div id="newHeroPreviewBox" class="hidden space-y-2">
+          <img id="newHeroPreviewImg" src="" alt="Banner Preview" style="aspect-ratio: 12 / 5;" class="w-full max-w-md object-cover rounded-xl border border-slate-200 shadow-sm">
+          <button type="button" onclick="reopenCropperForInput('newHeroInput', 12/5, 'newHeroPreviewImg', 'newHeroPreviewBox', 'newHeroPlaceholder', { locked: true, exactWidth: 1200, exactHeight: 500 })" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-[11px] font-bold rounded-lg hover:bg-slate-50">
+            <i class="fa-solid fa-crop-simple"></i> Reposition / Zoom (1200&times;500)
+          </button>
+        </div>
+        <div id="newHeroPlaceholder" class="text-[11px] text-slate-500">Pick any photo — the editor will lock the crop frame to exactly 1200 &times; 500 px.</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <input type="file" id="newHeroInput" name="image" required accept="image/*"
+            onchange="openCropper(this, 12/5, 'newHeroPreviewImg', 'newHeroPreviewBox', 'newHeroPlaceholder', null, { locked: true, exactWidth: 1200, exactHeight: 500 })"
+            class="flex-1 min-w-[200px] text-xs text-slate-500 border rounded-xl p-2 bg-white">
+          <button type="submit" class="btn-purple px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm whitespace-nowrap">
+            <i class="fa-solid fa-plus"></i> Add Banner Slide
+          </button>
+        </div>
+      </div>
+    </form>
+
+    {% if hero_banners %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for hb in hero_banners %}
+      <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+        <div class="relative rounded-xl overflow-hidden border border-slate-200 bg-white" style="aspect-ratio: 12 / 5;">
+          <img id="heroThumb-{{ hb.pk }}" src="{{ hb.image.url }}" alt="{{ hb.title }}" class="w-full h-full object-cover">
+          <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold {% if hb.is_active %}bg-emerald-600 text-white{% else %}bg-slate-700 text-slate-200{% endif %}">
+            {% if hb.is_active %}Active{% else %}Hidden{% endif %}
+          </span>
+        </div>
+        <form method="POST" action="{% url 'merchant_edit_hero_banner' hb.pk %}" class="grid grid-cols-3 gap-2">
+          {% csrf_token %}
+          <input type="text" name="title" value="{{ hb.title }}" placeholder="Title" class="border rounded-lg px-2.5 py-1.5 text-[11px] bg-white outline-none">
+          <input type="text" name="link" value="{{ hb.link }}" placeholder="Link URL" class="border rounded-lg px-2.5 py-1.5 text-[11px] bg-white outline-none">
+          <div class="flex gap-1">
+            <input type="number" name="order" value="{{ hb.order }}" class="w-14 border rounded-lg px-2 py-1.5 text-[11px] bg-white outline-none">
+            <button type="submit" class="flex-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-black">Save</button>
+          </div>
+        </form>
+        <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/70">
+          <button type="button"
+            onclick="openExistingImageCropper({ modelType: 'hero_banner', objectId: '{{ hb.pk }}', imageUrl: document.getElementById('heroThumb-{{ hb.pk }}').src, aspectRatio: 12/5, locked: true, exactWidth: 1200, exactHeight: 500, targetImgIds: ['heroThumb-{{ hb.pk }}'] })"
+            class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#541DFF] rounded-lg text-[11px] font-bold">
+            <i class="fa-solid fa-crop-simple"></i> Edit Image (1200&times;500)
+          </button>
+          <div class="flex items-center gap-2">
+            <form method="POST" action="{% url 'merchant_toggle_hero_banner' hb.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="px-2.5 py-1.5 border rounded-lg text-[11px] font-bold bg-white hover:bg-slate-50">{% if hb.is_active %}Hide{% else %}Show{% endif %}</button>
+            </form>
+            <button type="button" onclick="triggerActionModal('{% url 'merchant_delete_hero_banner' hb.pk %}', 'Delete this hero banner slide?')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-bold">
+              <i class="fa-regular fa-trash-can"></i> Remove
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-6 text-xs text-slate-400">No hero banner slides added yet. Upload 5–7 wide banners above!</div>
+    {% endif %}
+  </div>
+
+  <!-- TABS 1, 3, 4, 5: UNIFIED WEBSITE CUSTOMIZATION FORM -->
+  <form id="mainCustomizeForm" method="POST" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- TAB 1: BRAND, LOGO & FONT -->
+    <div id="cw-panel-brand" class="cw-panel bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <h2 class="text-base font-black text-slate-900 border-b border-slate-100 pb-3">Brand Identity, Logo &amp; Font</h2>
+
+      <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-800 uppercase">Storefront Logo (Also updates Browser Tab Icon)</label>
+            <p class="text-[11px] text-slate-400">Upload an icon or wordmark (transparent PNG/WebP recommended).</p>
+          </div>
+          {% if setting.logo %}
+          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 cursor-pointer">
+            <input type="checkbox" name="remove_logo" value="1" class="rounded"> Remove current logo
+          </label>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <div id="cwLogoPrevBox" class="{% if not setting.logo %}hidden{% endif %} flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200">
+            <img id="cwLogoLiveImg" src="{% if setting.logo %}{{ setting.logo.url }}{% endif %}" alt="Logo" class="h-12 w-auto max-w-[160px] object-contain">
+            {% if setting.logo %}
+            <button type="button" id="cwLogoEditExistingBtn"
+              onclick="openExistingImageCropper({ modelType: 'site_logo', objectId: '1', imageUrl: document.getElementById('cwLogoLiveImg').src, aspectRatio: NaN, targetImgIds: ['cwLogoLiveImg', 'cwHeaderMockLogo'] })"
+              class="px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100">
+              <i class="fa-solid fa-crop-simple"></i> Edit Existing
+            </button>
+            {% endif %}
+            <button type="button" id="cwLogoEditStagedBtn"
+              onclick="reopenCropperForInput('cwLogoInput', NaN, 'cwLogoLiveImg', 'cwLogoPrevBox')"
+              class="hidden px-3 py-1.5 bg-purple-50 text-[#541DFF] rounded-xl text-[11px] font-bold hover:bg-purple-100">
+              <i class="fa-solid fa-crop-simple"></i> Edit Staged
+            </button>
+          </div>
+          <input type="file" id="cwLogoInput" name="logo" accept="image/*"
+            onchange="openCropper(this, NaN, 'cwLogoLiveImg', 'cwLogoPrevBox', null, () => { document.getElementById('cwLogoEditExistingBtn')?.classList.add('hidden'); document.getElementById('cwLogoEditStagedBtn').classList.remove('hidden'); })"
+            class="flex-1 min-w-[200px] text-xs text-slate-500 border rounded-xl p-2 bg-white">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Website / Brand Name *</label>
+          <input type="text" id="cwSiteNameInput" name="site_name" value="{{ setting.site_name }}" required oninput="updateBrandPreview()" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Brand Name Font</label>
+          <select id="cwBrandFontSelect" name="brand_font" onchange="updateBrandPreview()" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+            {% for f_val, f_label in brand_fonts %}
+            <option value="{{ f_val }}" {% if setting.brand_font == f_val %}selected{% endif %}>{{ f_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2.5 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
+        <input type="checkbox" id="cwShowNameCheck" name="show_brand_name_with_logo" value="yes" {% if setting.show_brand_name_with_logo %}checked{% endif %} onchange="updateBrandPreview()" class="w-4 h-4 rounded">
+        <span class="text-xs font-bold text-slate-800">Show Brand Name beside Logo in Header</span>
+      </label>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Browser Tab / SEO Title</label>
+          <input type="text" name="meta_title" value="{{ setting.meta_title }}" placeholder="Auto-synced with Brand Name" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">SEO Meta Description</label>
+          <input type="text" name="meta_description" maxlength="160" value="{{ setting.meta_description }}" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: THEME, COLORS & CHECKOUT -->
+    <div id="cw-panel-theme" class="cw-panel hidden bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <h2 class="text-base font-black text-slate-900 border-b border-slate-100 pb-3">Theme Colors, Mode &amp; Checkout</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="space-y-2.5">
+          <label class="block text-xs font-bold text-slate-700 uppercase">Primary Brand Color</label>
+          <div class="flex items-center gap-3">
+            <input type="color" name="theme_color" value="{{ setting.theme_color }}" id="colorInput" class="w-12 h-12 rounded-xl border p-1 cursor-pointer" oninput="applyThemeColorPreview(this.value)">
+            <span id="colorHex" class="font-mono text-sm font-bold text-slate-700">{{ setting.theme_color }}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <span class="text-[10px] font-bold text-slate-400 uppercase mr-1">Presets:</span>
+            <button type="button" onclick="pickColorPreset('#5C3214')" class="cw-swatch" style="background:#5C3214" title="Espresso Brown"></button>
+            <button type="button" onclick="pickColorPreset('#0F172A')" class="cw-swatch" style="background:#0F172A" title="Midnight Slate"></button>
+            <button type="button" onclick="pickColorPreset('#065F46')" class="cw-swatch" style="background:#065F46" title="Emerald Green"></button>
+            <button type="button" onclick="pickColorPreset('#9F1239')" class="cw-swatch" style="background:#9F1239" title="Royal Rose"></button>
+            <button type="button" onclick="pickColorPreset('#1E3A8A')" class="cw-swatch" style="background:#1E3A8A" title="Deep Navy"></button>
+            <button type="button" onclick="pickColorPreset('#541DFF')" class="cw-swatch" style="background:#541DFF" title="Vibrant Indigo"></button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Storefront Mode</label>
+          <select name="theme_mode" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+            <option value="light" {% if setting.theme_mode == 'light' %}selected{% endif %}>Light Mode (Boutique Ivory)</option>
+            <option value="dark" {% if setting.theme_mode == 'dark' %}selected{% endif %}>Dark Mode (Sleek Slate)</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
+        <input type="checkbox" name="enable_buy_now" value="yes" {% if setting.enable_buy_now %}checked{% endif %} class="w-4 h-4 rounded">
+        <span>
+          <span class="block text-xs font-bold text-slate-800">Enable "Buy Now" Button on Product Pages</span>
+          <span class="block text-[11px] text-slate-400">Allows customers to open Cash on Delivery checkout directly from product pages.</span>
+        </span>
+      </label>
+    </div>
+
+    <!-- TAB 4: FREE DELIVERY, SHIPPING & TICKER -->
+    <div id="cw-panel-delivery" class="cw-panel hidden bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <h2 class="text-base font-black text-slate-900 border-b border-slate-100 pb-3">Free Delivery Offer, Shipping &amp; Announcement</h2>
+      <div class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/70 space-y-3">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="enable_free_delivery" value="yes" {% if setting.enable_free_delivery %}checked{% endif %} class="w-4 h-4 rounded">
+          <span>
+            <span class="block text-xs font-bold text-slate-900">Enable Free Delivery Progress Bar &amp; Offer</span>
+            <span class="block text-[11px] text-slate-500">Turn ON/OFF anytime. Orders reaching the threshold get FREE delivery automatically.</span>
+          </span>
+        </label>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Free Delivery Minimum Subtotal (৳)</label>
+          <input type="number" step="0.01" min="0" name="free_delivery_threshold" value="{{ setting.free_delivery_threshold }}" placeholder="e.g. 600 (Leave 0 to disable)" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-white outline-none">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Delivery Fee (Inside Dhaka)</label>
+          <input type="number" step="0.01" name="delivery_fee_dhaka" value="{{ setting.delivery_fee_dhaka }}" required class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Delivery Fee (Outside Dhaka)</label>
+          <input type="number" step="0.01" name="delivery_fee_outside" value="{{ setting.delivery_fee_outside }}" required class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Top Announcement Ticker Text</label>
+        <textarea name="announcement_notice" rows="2" class="w-full border rounded-xl p-3 text-xs bg-slate-50 outline-none">{{ setting.announcement_notice }}</textarea>
+      </div>
+    </div>
+
+    <!-- TAB 5: CONTACT & FOOTER -->
+    <div id="cw-panel-contact" class="cw-panel hidden bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <h2 class="text-base font-black text-slate-900 border-b border-slate-100 pb-3">Contact &amp; Footer Information</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Helpline Phone</label>
+          <input type="text" name="contact_phone" value="{{ setting.contact_phone }}" required class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">WhatsApp Number</label>
+          <input type="text" name="whatsapp_number" value="{{ setting.whatsapp_number }}" required class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Contact Email</label>
+          <input type="email" name="contact_email" value="{{ setting.contact_email }}" required class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
         </div>
       </div>
       <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Storefront Mode</label>
-        <select name="theme_mode" class="w-full border rounded-xl px-4 py-2.5 text-xs bg-slate-50 outline-none">
-          <option value="light" {% if setting.theme_mode == 'light' %}selected{% endif %}>Light Mode (Standard)</option>
-          <option value="dark" {% if setting.theme_mode == 'dark' %}selected{% endif %}>Dark Mode (Minimalist)</option>
-        </select>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Office / Shop Physical Address</label>
+        <textarea name="office_address" rows="2" class="w-full border rounded-xl p-3 text-xs bg-slate-50 outline-none">{{ setting.office_address }}</textarea>
       </div>
-      <div class="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-        <input type="checkbox" id="enableBuyNow" name="enable_buy_now" value="yes" {% if setting.enable_buy_now %}checked{% endif %} class="w-4 h-4 rounded cursor-pointer">
-        <label for="enableBuyNow" class="cursor-pointer">
-          <span class="block text-xs font-bold text-slate-800">Enable "Buy Now" Button on Product Pages</span>
-          <span class="block text-[11px] text-slate-400">Allows customers to open checkout directly from product detail pages.</span>
-        </label>
-      </div>
-      <button type="submit" class="btn-purple px-8 py-3 rounded-xl text-xs font-bold shadow-md">
-        Save Theme Styles
+    </div>
+
+    <div id="cwSaveBar" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <span class="text-xs text-slate-500">Changes across Brand, Colors, Delivery &amp; Contact are saved together.</span>
+      <button type="submit" class="btn-purple px-8 py-3 rounded-xl text-xs font-bold shadow-lg">
+        Save All Website Customizations
       </button>
-    </form>
-  </div>
+    </div>
+  </form>
 </div>
+
+<script>
+  function switchCwTab(tabName) {
+    document.querySelectorAll('.cw-panel').forEach(p => p.classList.add('hidden'));
+    const target = document.getElementById('cw-panel-' + tabName);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('.cw-tab-btn').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.tab === tabName);
+    });
+
+    const saveBar = document.getElementById('cwSaveBar');
+    if (saveBar) saveBar.classList.toggle('hidden', tabName === 'hero');
+
+    try { sessionStorage.setItem('cw_active_tab', tabName); } catch (e) {}
+  }
+
+  function updateBrandPreview() {
+    const nameEl = document.getElementById('cwSiteNameInput');
+    const fontEl = document.getElementById('cwBrandFontSelect');
+    const prevEl = document.getElementById('cwBrandPreviewText');
+    const showEl = document.getElementById('cwShowNameCheck');
+    if (!prevEl) return;
+    if (nameEl) prevEl.innerText = nameEl.value || 'Brand Name';
+    if (fontEl) prevEl.style.fontFamily = `'${fontEl.value}', sans-serif`;
+    if (showEl) prevEl.classList.toggle('hidden', !showEl.checked);
+  }
+
+  function applyThemeColorPreview(hex) {
+    document.getElementById('colorHex').innerText = hex;
+    const mockBtn = document.getElementById('cwMockBtn');
+    if (mockBtn) mockBtn.style.backgroundColor = hex;
+  }
+
+  function pickColorPreset(hex) {
+    const input = document.getElementById('colorInput');
+    if (input) input.value = hex;
+    applyThemeColorPreview(hex);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const saved = sessionStorage.getItem('cw_active_tab');
+      if (saved && document.getElementById('cw-panel-' + saved)) switchCwTab(saved);
+    } catch (e) {}
+    updateBrandPreview();
+  });
+</script>
 {% endblock %}

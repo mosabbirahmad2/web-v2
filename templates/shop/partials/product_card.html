@@ -2,20 +2,20 @@
 <div class="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 flex flex-col justify-between h-full group">
   <div>
     {% with second_img=product.images.all.0 %}
-    <a href="{% url 'product_detail' product.pk %}" class="card-img-wrap {% if second_img and product.image %}has-alt{% endif %} aspect-square rounded-xl bg-[#F6F7F9] overflow-hidden mb-2.5 flex items-center justify-center p-2 block border border-slate-100 relative">
+    <a href="{% url 'product_detail' product.pk %}" class="card-img-wrap {% if second_img and product.image %}has-alt{% endif %} aspect-square rounded-xl studio-img-box overflow-hidden mb-2.5 flex items-center justify-center p-2.5 block relative">
       {% if product.discount_percent > 0 %}
       <span class="absolute top-2 left-2 z-10 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm leading-none">-{{ product.discount_percent }}%</span>
       {% elif product.badge_tag %}
-      <span class="absolute top-2 left-2 z-10 bg-amber-50 text-amber-800 text-[9.5px] font-bold px-2 py-0.5 rounded-full border border-amber-200 whitespace-nowrap leading-none">{{ product.badge_tag }}</span>
+      <span class="absolute top-2 left-2 z-10 bg-white/95 text-amber-900 text-[9.5px] font-bold px-2 py-0.5 rounded-full border border-amber-200 whitespace-nowrap leading-none shadow-sm">{{ product.badge_tag }}</span>
       {% endif %}
 
       {% if product.image %}
-      <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="card-img-primary w-full h-full object-contain">
+      <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="card-img-primary studio-img-blend w-full h-full object-contain">
       {% if second_img %}
-      <img src="{{ second_img.image.url }}" alt="{{ product.name }}" loading="lazy" class="card-img-secondary w-full h-full object-contain p-2">
+      <img src="{{ second_img.image.url }}" alt="{{ product.name }}" loading="lazy" class="card-img-secondary studio-img-blend w-full h-full object-contain p-2.5">
       {% endif %}
       {% else %}
-      <i class="fa-solid fa-box text-slate-300 text-3xl"></i>
+      <i class="fa-solid fa-box text-slate-400 text-3xl"></i>
       {% endif %}
     </a>
     {% endwith %}
