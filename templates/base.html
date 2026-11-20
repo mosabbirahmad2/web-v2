@@ -37,7 +37,7 @@
 
   <style>
     :root { --brand-primary: {{ site_setting.theme_color|default:"#5C3214" }}; }
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F3F4F6; color: #0F172A; transition: background-color .2s ease, color .2s ease; }
     .brand-font { font-family: '{{ site_setting.brand_font|default:"Plus Jakarta Sans" }}', 'Plus Jakarta Sans', sans-serif; }
     .bg-theme { background-color: var(--brand-primary); }
     .text-theme { color: var(--brand-primary); }
@@ -79,6 +79,24 @@
     .btn-in-bag { background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; cursor: default; }
     .btn-in-bag:hover { background-color: #ecfdf5 !important; }
 
+    /* Pure-White Product Image Box + Elevated Card Separation (Zero Color Tint) */
+    .catalog-cool-bg { background-color: #F3F4F6; }
+    .product-card-surface {
+      background-color: #FFFFFF;
+      border: 1px solid #DCE2EA;
+      box-shadow: 0 4px 14px -3px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .product-card-surface:hover {
+      border-color: #94A3B8;
+      box-shadow: 0 14px 28px -8px rgba(15, 23, 42, 0.14), 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+    }
+    .product-img-frame {
+      background-color: #FFFFFF !important;
+      border: 1px solid #E2E8F0 !important;
+      box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.9), 0 2px 6px -2px rgba(15, 23, 42, 0.06);
+    }
+
     /* Boutique Card 2nd-Image Hover Peek */
     .card-img-wrap { position: relative; }
     .card-img-primary { transition: transform .3s ease, opacity .25s ease; }
@@ -89,25 +107,14 @@
 
     /* Dazzle-Style Hero Banner Carousel (Fixed 12:5 Aspect Ratio) */
     .dazzle-hero-track {
-      display: flex;
-      gap: 0.75rem;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scroll-behavior: smooth;
-      padding: 0 0.75rem;
+      display: flex; gap: 0.75rem; overflow-x: auto;
+      scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 0 0.75rem;
     }
-    @media (min-width: 768px) {
-      .dazzle-hero-track { gap: 1rem; padding: 0 1.25rem; }
-    }
+    @media (min-width: 768px) { .dazzle-hero-track { gap: 1rem; padding: 0 1.25rem; } }
     .dazzle-hero-slide {
-      flex: 0 0 92%;
-      scroll-snap-align: center;
-      aspect-ratio: 12 / 5;
-      border-radius: 1rem;
-      overflow: hidden;
-      background: #f1f5f9;
-      display: block;
-      position: relative;
+      flex: 0 0 92%; scroll-snap-align: center; aspect-ratio: 12 / 5;
+      border-radius: 1rem; overflow: hidden; background: #e2e8f0;
+      display: block; position: relative;
       box-shadow: 0 6px 20px -8px rgba(15, 23, 42, 0.25);
     }
     @media (min-width: 640px) { .dazzle-hero-slide { flex: 0 0 82%; border-radius: 1.25rem; } }
@@ -118,57 +125,40 @@
     .dazzle-dot, .carousel-dot {
       width: 7px; height: 7px; border-radius: 9999px;
       background: rgba(148, 163, 184, 0.5);
-      transition: all 0.28s ease;
-      cursor: pointer; border: 0; padding: 0;
+      transition: all 0.28s ease; cursor: pointer; border: 0; padding: 0;
     }
     .dazzle-dot.is-active, .carousel-dot.is-active {
-      width: 24px;
-      background: linear-gradient(90deg, #f59e0b, #d97706);
-      opacity: 1 !important;
+      width: 24px; background: linear-gradient(90deg, #f59e0b, #d97706); opacity: 1 !important;
     }
 
-    /* Studio Image Backdrop & White-Bg Removal Blend */
-    .studio-img-box {
-      background: radial-gradient(circle at 50% 45%, #F8F6F1 0%, #EAE4D8 100%) !important;
-      border: 1px solid #E2DDD2 !important;
-      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    /* Sleek Vertical Boutique Category Strip (Fixed Card Proportions) */
+    .cat-strip-wrap {
+      display: flex; flex-wrap: wrap; gap: 0.75rem;
     }
-    .studio-img-blend {
-      mix-blend-mode: multiply;
+    @media (min-width: 640px) { .cat-strip-wrap { gap: 1rem; } }
+    .cat-vertical-card {
+      width: calc(50% - 0.375rem);
+      background-color: #FFFFFF;
+      border: 1px solid #DCE2EA;
+      border-radius: 1rem;
+      padding: 0.75rem;
+      box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.08);
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
     }
-    .catalog-soft-bg {
-      background-color: #F4F1EA;
+    .cat-vertical-card:hover {
+      transform: translateY(-3px);
+      border-color: #94A3B8;
+      box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.14);
     }
-    body.dark-theme .catalog-soft-bg {
-      background-color: #020617 !important;
-    }
-    body.dark-theme .studio-img-box {
-      background: radial-gradient(circle at 50% 45%, #F3F0EA 0%, #E4DFD5 100%) !important;
-      border-color: #334155 !important;
-    }
+    @media (min-width: 480px) { .cat-vertical-card { width: calc(33.333% - 0.5rem); } }
+    @media (min-width: 768px) { .cat-vertical-card { width: 168px; flex: 0 0 168px; } }
+    @media (min-width: 1280px) { .cat-vertical-card { width: 176px; flex: 0 0 176px; } }
 
-    /* Professional Boutique Category Cards */
-    .cat-pro-grid {
-      display: grid;
-      grid-template-columns: repeat(1, minmax(0, 1fr));
-      gap: 0.75rem;
-    }
-    @media (min-width: 480px) {
-      .cat-pro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.875rem; }
-    }
-    @media (min-width: 768px) {
-      .cat-pro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-    }
-    @media (min-width: 1280px) {
-      .cat-pro-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-    }
-
-    /* Responsive Reviews Grid */
     .ux-4col-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 0.875rem; }
     @media (min-width: 640px) { .ux-4col-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (min-width: 1024px) { .ux-4col-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-    /* Mobile Thumb-Zone Bottom Bar */
     .mobile-bottom-nav {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
       background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px);
@@ -183,7 +173,11 @@
     .free-ship-track { width: 100%; height: 6px; border-radius: 9999px; background: #e2e8f0; overflow: hidden; }
     .free-ship-fill { height: 100%; border-radius: 9999px; transition: width .35s ease, background-color .35s ease; }
 
-    body.dark-theme { background-color: #020617; color: #f1f5f9; }
+    /* ============================================================ */
+    /* COMPLETE STOREFRONT DARK THEME                               */
+    /* ============================================================ */
+    body.dark-theme { background-color: #090D16 !important; color: #F1F5F9 !important; }
+    body.dark-theme .catalog-cool-bg { background-color: #090D16 !important; border-color: #1E293B !important; }
     body.dark-theme header,
     body.dark-theme header > div,
     body.dark-theme .marquee-wrap,
@@ -196,56 +190,86 @@
     body.dark-theme #searchDropdown,
     body.dark-theme #searchDropdownMobile,
     body.dark-theme .toast-item {
-      background-color: #0f172a !important;
-      color: #f1f5f9 !important;
-      border-color: #1e293b !important;
+      background-color: #111827 !important;
+      color: #F8FAFC !important;
+      border-color: #1F2937 !important;
+    }
+    body.dark-theme .product-card-surface,
+    body.dark-theme .cat-vertical-card {
+      background-color: #161F30 !important;
+      border-color: #293548 !important;
+      box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.5) !important;
+    }
+    body.dark-theme .product-card-surface:hover,
+    body.dark-theme .cat-vertical-card:hover {
+      border-color: #475569 !important;
+    }
+    body.dark-theme .product-img-frame {
+      background-color: #FFFFFF !important;
+      border-color: #334155 !important;
     }
     body.dark-theme main .bg-white,
-    body.dark-theme .store-surface {
-      background-color: #0f172a !important;
-      border-color: #1e293b !important;
+    body.dark-theme main .bg-\[\#FBF4E8\],
+    body.dark-theme main .bg-\[\#FDEEF1\],
+    body.dark-theme main .bg-slate-100 {
+      background-color: #111827 !important;
+      color: #F8FAFC !important;
+      border-color: #1F2937 !important;
     }
-    body.dark-theme main .bg-\[\#F6F7F9\],
     body.dark-theme main .bg-slate-50,
+    body.dark-theme main .bg-slate-50\/70,
     body.dark-theme #cartDrawer .bg-\[\#FAF9F5\],
     body.dark-theme #mobileNavDrawer .bg-\[\#FAF9F5\],
     body.dark-theme #cartDrawer .bg-white,
     body.dark-theme #cartDrawer .bg-slate-50,
     body.dark-theme #orderReceiptCard .bg-slate-50 {
-      background-color: #1e293b !important;
+      background-color: #1E293B !important;
       border-color: #334155 !important;
     }
     body.dark-theme .border-slate-200,
     body.dark-theme .border-slate-100,
-    body.dark-theme .border-slate-300 { border-color: #334155 !important; }
+    body.dark-theme .border-slate-300 { border-color: #293548 !important; }
     body.dark-theme .text-slate-900,
-    body.dark-theme .text-slate-800 { color: #f8fafc !important; }
+    body.dark-theme .text-slate-800 { color: #F8FAFC !important; }
     body.dark-theme .text-slate-700,
     body.dark-theme .text-slate-600,
-    body.dark-theme .text-slate-500 { color: #cbd5e1 !important; }
+    body.dark-theme .text-slate-500 { color: #CBD5E1 !important; }
+    body.dark-theme .text-slate-400 { color: #94A3B8 !important; }
     body.dark-theme input,
     body.dark-theme select,
     body.dark-theme textarea {
-      background-color: #1e293b !important;
-      color: #f8fafc !important;
+      background-color: #1E293B !important;
+      color: #F8FAFC !important;
       border-color: #334155 !important;
     }
     body.dark-theme .bg-amber-50,
     body.dark-theme .bg-amber-50\/70,
     body.dark-theme .bg-amber-100\/70 {
       background-color: rgba(245, 158, 11, 0.16) !important;
-      color: #fde68a !important;
+      color: #FDE68A !important;
+      border-color: rgba(245, 158, 11, 0.3) !important;
     }
     body.dark-theme .text-amber-900,
-    body.dark-theme .text-amber-800 { color: #fde68a !important; }
+    body.dark-theme .text-amber-800 { color: #FDE68A !important; }
     body.dark-theme .add-to-bag-btn:not(.btn-in-bag) {
       background-color: var(--brand-primary) !important;
-      color: #ffffff !important;
+      color: #FFFFFF !important;
     }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="{% if site_setting.theme_mode == 'dark' %}dark-theme bg-slate-950 text-slate-100{% else %}bg-[#FAF9F5] text-slate-900{% endif %} flex flex-col min-h-screen">
+<body class="{% if site_setting.theme_mode == 'dark' %}dark-theme{% endif %} flex flex-col min-h-screen">
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('fantacy_theme_mode');
+        var defMode = "{{ site_setting.theme_mode|default:'light' }}";
+        var mode = saved || defMode;
+        if (mode === 'dark') document.body.classList.add('dark-theme');
+        else document.body.classList.remove('dark-theme');
+      } catch (e) {}
+    })();
+  </script>
 
   <div id="toastStack" class="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-5 sm:right-5 z-[200] flex flex-col items-center sm:items-end gap-2.5 px-4 sm:px-0 pointer-events-none"></div>
 
@@ -341,6 +365,9 @@
       <a href="{% url 'order_track' %}" onclick="closeMobileNav()" class="px-3.5 py-3 rounded-xl text-slate-700 hover:bg-slate-50 font-bold text-sm min-h-[42px] flex items-center gap-2">
         <i class="fa-solid fa-truck-fast text-theme text-xs"></i> Track Order
       </a>
+      <button type="button" onclick="toggleSiteTheme()" class="w-full px-3.5 py-3 rounded-xl text-slate-700 hover:bg-slate-50 font-bold text-sm min-h-[42px] flex items-center justify-between">
+        <span class="flex items-center gap-2"><i class="theme-toggle-icon fa-solid fa-moon text-xs"></i> <span class="theme-toggle-label">Dark Mode</span></span>
+      </button>
       {% for cat in global_categories %}
       <div class="border-b border-slate-100 last:border-0">
         <div class="flex items-center">
@@ -391,10 +418,15 @@
         </span>
         {% endif %}
       </a>
-      <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 shrink-0">
-        <i class="fa-solid fa-bag-shopping text-sm"></i>
-        <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
-      </button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" onclick="toggleSiteTheme()" aria-label="Toggle Dark or Light Mode" class="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800">
+          <i class="theme-toggle-icon fa-solid fa-moon text-sm"></i>
+        </button>
+        <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800">
+          <i class="fa-solid fa-bag-shopping text-sm"></i>
+          <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+        </button>
+      </div>
     </div>
 
     <div class="md:hidden px-4 pb-3 relative">
@@ -429,10 +461,14 @@
         <div id="searchDropdown" class="hidden absolute left-0 right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-96 overflow-y-auto"></div>
       </div>
 
-      <div class="flex items-center gap-3 shrink-0">
+      <div class="flex items-center gap-2.5 shrink-0">
         <a href="{% url 'order_track' %}" class="px-3.5 py-2 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5">
           <i class="fa-solid fa-truck-fast text-theme"></i> Track Order
         </a>
+        <button type="button" onclick="toggleSiteTheme()" title="Switch Dark / Light Mode" aria-label="Toggle Dark or Light Mode" class="px-3.5 py-2 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5">
+          <i class="theme-toggle-icon fa-solid fa-moon text-sm"></i>
+          <span class="theme-toggle-label">Dark</span>
+        </button>
         <button type="button" onclick="toggleCart()" aria-label="Open shopping bag" class="relative w-11 h-11 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-800 hover:bg-slate-100 transition shadow-sm shrink-0">
           <i class="fa-solid fa-bag-shopping text-sm"></i>
           <span class="cart-badge absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
@@ -467,7 +503,10 @@
   {% if site_setting.announcement_notice %}
   <div class="bg-white border-b border-slate-200 py-2 overflow-hidden relative marquee-wrap">
     <div class="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-6 flex items-center gap-3 text-xs font-semibold text-slate-700">
-      <span class="relative flex h-2.5 w-2.5 shrink-0"><span class="animate-ping absolute inset-0 rounded-full bg-emerald-500" style="opacity:0.75"></span><span class="relative rounded-full h-2.5 w-2.5 bg-emerald-500"></span></span>
+      <span class="relative flex h-2.5 w-2.5 shrink-0">
+        <span class="animate-ping absolute inset-0 rounded-full bg-emerald-500" style="opacity:0.75"></span>
+        <span class="relative rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+      </span>
       <div class="overflow-hidden w-full">
         <div class="marquee-track">
           <span class="pr-10 whitespace-nowrap">📢 {{ site_setting.announcement_notice }}</span>
@@ -663,21 +702,33 @@
   </nav>
 
   <script>
+    function syncThemeToggleIcons() {
+      const isDark = document.body.classList.contains('dark-theme');
+      document.querySelectorAll('.theme-toggle-icon').forEach(ic => {
+        ic.classList.remove('fa-moon', 'fa-sun');
+        ic.classList.add(isDark ? 'fa-sun' : 'fa-moon');
+      });
+      document.querySelectorAll('.theme-toggle-label').forEach(lb => {
+        lb.innerText = isDark ? 'Light' : 'Dark';
+      });
+    }
+    function toggleSiteTheme() {
+      const willBeDark = !document.body.classList.contains('dark-theme');
+      document.body.classList.toggle('dark-theme', willBeDark);
+      try { localStorage.setItem('fantacy_theme_mode', willBeDark ? 'dark' : 'light'); } catch (e) {}
+      syncThemeToggleIcons();
+    }
+
     function escapeHtml(str) {
       return String(str == null ? '' : str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function formatPrice(val) {
       const num = parseFloat(val);
       if (isNaN(num)) return escapeHtml(val || '0');
-      if (Math.abs(num - Math.round(num)) < 0.005) {
-        return Math.round(num).toLocaleString('en-US');
-      }
+      if (Math.abs(num - Math.round(num)) < 0.005) return Math.round(num).toLocaleString('en-US');
       return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
@@ -719,9 +770,7 @@
 
     function saveCart(shouldResetPromo = true) {
       localStorage.setItem('fantacy_cart', JSON.stringify(cart));
-      if (shouldResetPromo && (currentDiscount > 0 || appliedPromoCode)) {
-        resetAppliedPromo();
-      }
+      if (shouldResetPromo && (currentDiscount > 0 || appliedPromoCode)) resetAppliedPromo();
       renderCartUI();
       syncAddToBagButtons();
     }
@@ -759,22 +808,18 @@
     function addToBag(id, name, effectivePrice, regularPrice, img, maxStock, qty) {
       id = String(id);
       const existing = cart.find(i => String(i.id) === id);
-
       if (existing) {
         showToast(`${escapeHtml(name)} is already in your bag`, 'info', 4200, { label: 'View Bag', onClick: openCart });
         return;
       }
-
       const stock = (maxStock !== undefined && maxStock !== null && maxStock !== '') ? parseInt(maxStock, 10) : null;
       if (stock !== null && stock <= 0) {
         showToast('This item is currently out of stock.', 'error');
         return;
       }
-
       const addQty = (qty && parseInt(qty, 10) > 0) ? parseInt(qty, 10) : 1;
       const p = parseFloat(effectivePrice);
       const regP = regularPrice ? parseFloat(regularPrice) : p;
-
       cart.push({ id, name, price: p, regularPrice: regP, img: img || '', qty: addQty, maxStock: stock });
       saveCart();
       bounceCartBadge();
@@ -819,10 +864,7 @@
         saveCart();
       }
     }
-    function removeCartItem(idx) {
-      cart.splice(idx, 1);
-      saveCart();
-    }
+    function removeCartItem(idx) { cart.splice(idx, 1); saveCart(); }
 
     function updateFreeDeliveryUI(subtotal) {
       const banner = document.getElementById('freeDeliveryBanner');
@@ -849,10 +891,7 @@
     function syncCartUpsells() {
       const box = document.getElementById('cartUpsellBox');
       if (!box) return;
-      if (cart.length === 0) {
-        box.classList.add('hidden');
-        return;
-      }
+      if (cart.length === 0) { box.classList.add('hidden'); return; }
       let visibleCount = 0;
       box.querySelectorAll('[data-upsell-id]').forEach(row => {
         const uid = String(row.dataset.upsellId);
@@ -885,8 +924,8 @@
         html += `
           <div class="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <div class="flex items-center gap-3 min-w-0">
-              <div class="w-12 h-12 rounded-xl bg-slate-50 border overflow-hidden shrink-0 flex items-center justify-center">
-                ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+              <div class="w-12 h-12 rounded-xl bg-white border overflow-hidden shrink-0 flex items-center justify-center">
+                ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-contain p-0.5">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
               </div>
               <div class="min-w-0">
                 <h4 class="text-xs font-bold text-slate-800 line-clamp-1">${safeName}</h4>
@@ -936,9 +975,7 @@
     function openCheckoutModal() {
       if (cart.length === 0) { showToast('Your shopping bag is empty!', 'warning'); return; }
       const distEl = document.getElementById('co_district');
-      if (distEl) {
-        deliveryFee = (distEl.value.toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
-      }
+      if (distEl) deliveryFee = (distEl.value.toLowerCase() === 'dhaka') ? feeDhaka : feeOutside;
       updateBillSummary();
       const modal = document.getElementById('checkoutModal');
       if (modal) modal.classList.remove('hidden');
@@ -959,7 +996,6 @@
       if (!input || !msg) return;
       const code = input.value.trim();
       if (!code) return;
-
       try {
         const res = await fetch('/api/apply-promo/', {
           method: 'POST',
@@ -989,7 +1025,6 @@
       const btn = document.getElementById('submitOrderBtn');
       btn.disabled = true;
       btn.innerText = "Placing Order...";
-
       const payload = {
         name: document.getElementById('co_name').value,
         phone: document.getElementById('co_phone').value,
@@ -999,7 +1034,6 @@
         promo_code: appliedPromoCode,
         items: cart
       };
-
       try {
         const res = await fetch('/api/checkout/', {
           method: 'POST',
@@ -1009,9 +1043,7 @@
         const result = await res.json();
         if (result.status === 'success') {
           openOrderSuccessModal(result);
-          if (result.removed_items_notice) {
-            showToast(result.removed_items_notice, 'warning', 6000);
-          }
+          if (result.removed_items_notice) showToast(result.removed_items_notice, 'warning', 6000);
           cart = [];
           saveCart(false);
           resetAppliedPromo();
@@ -1021,11 +1053,7 @@
           closeCheckoutModal();
           closeCart();
         } else {
-          if (result.invalid_items) {
-            cart = [];
-            saveCart();
-            closeCheckoutModal();
-          }
+          if (result.invalid_items) { cart = []; saveCart(); closeCheckoutModal(); }
           showToast(result.message || 'Unable to place order.', 'error');
         }
       } catch (err) {
@@ -1046,7 +1074,6 @@
         dropdown.innerHTML = '';
         return;
       }
-
       searchDebounceTimer = setTimeout(async () => {
         try {
           const res = await fetch(`/api/search/?q=${encodeURIComponent(val.trim())}`);
@@ -1060,8 +1087,8 @@
               const safeImg = item.image ? escapeHtml(item.image) : '';
               html += `
                 <a href="${safeUrl}" class="flex items-center gap-3 p-3 hover:bg-slate-50 transition">
-                  <div class="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 border flex items-center justify-center">
-                    ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+                  <div class="w-10 h-10 rounded-lg bg-white overflow-hidden shrink-0 border flex items-center justify-center">
+                    ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="text-xs font-bold text-slate-900 line-clamp-1">${safeName}</div>
@@ -1083,9 +1110,7 @@
             dropdown.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No matching products found</div>`;
             dropdown.classList.remove('hidden');
           }
-        } catch(e) {
-          dropdown.classList.add('hidden');
-        }
+        } catch(e) { dropdown.classList.add('hidden'); }
       }, 300);
     }
 
@@ -1093,22 +1118,16 @@
       [['storeSearch', 'searchDropdown'], ['storeSearchMobile', 'searchDropdownMobile']].forEach(([inputId, dropId]) => {
         const searchBox = document.getElementById(inputId);
         const dropdown = document.getElementById(dropId);
-        if (dropdown && searchBox && !searchBox.contains(e.target) && !dropdown.contains(e.target)) {
-          dropdown.classList.add('hidden');
-        }
+        if (dropdown && searchBox && !searchBox.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add('hidden');
       });
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeCheckoutModal();
-        closeOrderSuccessModal();
-        closeCart();
-        closeMobileNav();
-      }
+      if (e.key === 'Escape') { closeCheckoutModal(); closeOrderSuccessModal(); closeCart(); closeMobileNav(); }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+      syncThemeToggleIcons();
       renderCartUI();
       syncAddToBagButtons();
     });
@@ -1132,10 +1151,7 @@
         </div>
         <button type="button" class="toast-dismiss-btn text-slate-300 hover:text-slate-600 text-sm leading-none mt-0.5" aria-label="Dismiss">&times;</button>
       `;
-      const dismiss = () => {
-        el.classList.add('toast-leaving');
-        setTimeout(() => el.remove(), 200);
-      };
+      const dismiss = () => { el.classList.add('toast-leaving'); setTimeout(() => el.remove(), 200); };
       el.querySelector('.toast-dismiss-btn').onclick = dismiss;
       if (action) {
         const actionBtn = el.querySelector('.toast-action-btn');
@@ -1150,25 +1166,19 @@
       document.getElementById('osGreeting').innerText = `Order Confirmed! Thank you, ${data.customer_name}`;
       document.getElementById('osOrderId').innerText = data.order_id;
       document.getElementById('osSubtotal').innerText = `৳ ${formatPrice(data.subtotal)}`;
-
       const discRow = document.getElementById('osDiscountRow');
       if (parseFloat(data.discount_amount) > 0) {
-        discRow.classList.remove('hidden');
-        discRow.classList.add('flex');
+        discRow.classList.remove('hidden'); discRow.classList.add('flex');
         document.getElementById('osDiscount').innerText = `- ৳ ${formatPrice(data.discount_amount)}`;
       } else {
-        discRow.classList.add('hidden');
-        discRow.classList.remove('flex');
+        discRow.classList.add('hidden'); discRow.classList.remove('flex');
       }
-
       const feeVal = parseFloat(data.delivery_fee);
       document.getElementById('osDeliveryFee').innerText = feeVal === 0 ? 'FREE' : `৳ ${formatPrice(data.delivery_fee)}`;
       document.getElementById('osOrderTotal').innerText = `৳ ${formatPrice(data.total)}`;
-
       const addrParts = [data.shipping_address, data.thana, data.district].filter(Boolean);
       document.getElementById('osAddress').innerText = addrParts.join(', ');
       document.getElementById('osEta').innerText = `Estimated Delivery: ${data.estimated_delivery}`;
-
       const list = document.getElementById('osItemsList');
       list.innerHTML = (data.items || []).map(it => {
         const safeName = escapeHtml(it.name);
@@ -1177,7 +1187,7 @@
         return `
           <div class="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
             <div class="w-10 h-10 rounded-lg bg-white border overflow-hidden shrink-0 flex items-center justify-center">
-              ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
+              ${safeImg ? `<img src="${safeImg}" alt="${safeName}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-box text-slate-300"></i>`}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-xs font-bold text-slate-900 line-clamp-1">${safeName}</div>
@@ -1188,32 +1198,22 @@
           </div>
         `;
       }).join('');
-
       const waLink = document.getElementById('osWhatsappLink');
       if (whatsappNumber) {
         waLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hi, I need help with my order ' + data.order_id)}`;
         waLink.classList.remove('hidden');
-      } else {
-        waLink.classList.add('hidden');
-      }
-
+      } else waLink.classList.add('hidden');
       document.getElementById('orderSuccessModal').classList.remove('hidden');
     }
-    function closeOrderSuccessModal() {
-      document.getElementById('orderSuccessModal').classList.add('hidden');
-    }
+    function closeOrderSuccessModal() { document.getElementById('orderSuccessModal').classList.add('hidden'); }
     function copyOrderId() {
       if (!lastOrderId) return;
       const btn = document.getElementById('copyOrderIdBtn');
       const original = btn.innerHTML;
       const reset = () => setTimeout(() => { btn.innerHTML = original; }, 1800);
       const showCopied = () => { btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!'; reset(); };
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(lastOrderId).then(showCopied).catch(showCopied);
-      } else {
-        showCopied();
-      }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(lastOrderId).then(showCopied).catch(showCopied);
+      else showCopied();
     }
   </script>
   {% block extra_js %}{% endblock %}
